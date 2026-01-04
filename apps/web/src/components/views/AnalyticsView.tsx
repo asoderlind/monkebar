@@ -121,7 +121,7 @@ export function AnalyticsView({
               <span className="text-xs">📅</span>
               <span className="text-xs">Workouts</span>
             </div>
-            <p className="text-2xl font-bold">{summary?.totalWorkouts || 0}</p>
+            <p className="text-2xl font-bold">{summary?.totalSessions || 0}</p>
           </CardContent>
         </Card>
       </div>
@@ -193,7 +193,7 @@ export function AnalyticsView({
                     <div>
                       <p className="font-medium text-sm">{best.exerciseName}</p>
                       <p className="text-xs text-muted-foreground">
-                        Week {best.weekNumber}
+                        {best.date}
                       </p>
                     </div>
                   </div>

@@ -29,7 +29,10 @@ export const requireAuth = createMiddleware<{
     return c.json({ success: false, error: "Unauthorized" }, 401);
   }
 
-  c.set("user", session.user);
+  c.set("user", {
+    ...session.user,
+    image: session.user.image ?? undefined,
+  });
   c.set("session", session.session);
 
   await next();
