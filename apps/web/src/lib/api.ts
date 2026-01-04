@@ -7,7 +7,7 @@ import type {
   DayOfWeek,
 } from "@monke-bar/shared";
 
-const API_BASE = "http://localhost:3001/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
 // Workout log entry type for adding new workouts
 export interface WorkoutLogEntry {

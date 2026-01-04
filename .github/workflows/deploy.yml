@@ -72,6 +72,8 @@ jobs:
           labels: ${{ steps.meta-web.outputs.labels }}
           cache-from: type=gha,scope=web
           cache-to: type=gha,mode=max,scope=web
+          build-args: |
+            VITE_API_URL=https://strong.monkebrain.com/api
 
       - name: Copy docker-compose to VPS
         uses: appleboy/scp-action@v0.1.7
