@@ -51,6 +51,7 @@ COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
 # Copy drizzle config and migrations
 COPY apps/api/drizzle.config.ts ./apps/api/
+COPY apps/api/drizzle ./apps/api/drizzle
 COPY apps/api/src/db/migrate.ts ./apps/api/src/db/
 
 WORKDIR /app/apps/api
