@@ -1,0 +1,29 @@
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
+
+# Copy workspace config and lockfile
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+
+# Copy all package.json files for workspace
+COPY apps/api/package.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY packages/shared/package.json ./packages/shared/
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile
+
+# Copy source files
+COPY packages/shared ./packages/shared
+COPY apps/web ./apps/web
+
+# Expose Vite dev server port
+EXPOSE 5173
+
+WORKDIR /app/apps/web
+
+# Start dev server with host flag for container access
+CMD ["pnpm", "dev", "--host"]
