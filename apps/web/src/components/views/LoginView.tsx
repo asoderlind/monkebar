@@ -12,7 +12,7 @@ export function LoginView() {
   const handleGoogleLogin = () => {
     signIn.social({
       provider: "google",
-      callbackURL: "http://localhost:5173",
+      callbackURL: window.location.origin,
     });
   };
 
