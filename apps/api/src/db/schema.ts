@@ -58,7 +58,7 @@ export const accounts = pgTable("accounts", {
 export const verifications = pgTable("verifications", {
   id: varchar("id", { length: 36 }).primaryKey(),
   identifier: varchar("identifier", { length: 255 }).notNull(),
-  value: varchar("value", { length: 255 }).notNull(),
+  value: text("value").notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
