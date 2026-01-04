@@ -88,7 +88,7 @@ jobs:
           host: ${{ secrets.SERVER_IP }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
-          envs: GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,BETTER_AUTH_SECRET
+          envs: GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,BETTER_AUTH_SECRET,GHCR_TOKEN
           script: |
             mkdir -p ~/monke-bar
             cd ~/monke-bar
@@ -99,6 +99,9 @@ jobs:
             GOOGLE_CLIENT_SECRET=$GOOGLE_CLIENT_SECRET
             BETTER_AUTH_SECRET=$BETTER_AUTH_SECRET
             EOF
+
+            # Login to GitHub Container Registry
+            echo $GHCR_TOKEN | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
             # Stop and remove old containers
             docker compose -f docker-compose.prod.yml down || true
@@ -116,6 +119,7 @@ jobs:
           GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
           GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
           BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
 
       - name: Summary
         run: |
