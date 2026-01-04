@@ -21,7 +21,7 @@ export function LoginView() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="text-6xl mb-4">🦍</div>
-          <CardTitle className="text-2xl">Monke Bar</CardTitle>
+          <CardTitle className="text-2xl">Monkebar</CardTitle>
           <CardDescription>
             Track your workouts with Google Sheets
           </CardDescription>

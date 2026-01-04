@@ -1,4 +1,4 @@
-# 🦍 Monke Bar - Workout Tracker
+# 🦍 Monkebar - Workout Tracker
 
 A mobile-friendly workout tracking app that syncs with Google Sheets, providing analytics and trends while keeping your spreadsheet as the source of truth.
 

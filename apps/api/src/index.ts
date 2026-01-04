@@ -36,7 +36,7 @@ app.route("/api/analytics", analyticsRoutes);
 
 const port = parseInt(process.env.PORT || "3001");
 
-console.log(`🏋️ Monke Bar API running on http://localhost:${port}`);
+console.log(`🏋️ Monkebar API running on http://localhost:${port}`);
 
 serve({
   fetch: app.fetch,
