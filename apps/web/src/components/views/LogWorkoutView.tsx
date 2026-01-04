@@ -117,7 +117,10 @@ function ExerciseHistoryPreview({
               <div className="flex items-center gap-1 flex-wrap justify-end">
                 {warmupSet && (
                   <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                    W: {warmupSet.weight}×{warmupSet.reps}
+                    W:{" "}
+                    {warmupSet.weight === 0
+                      ? warmupSet.reps
+                      : `${warmupSet.weight}×${warmupSet.reps}`}
                   </span>
                 )}
                 {workingSets.map((set) => (
@@ -125,7 +128,7 @@ function ExerciseHistoryPreview({
                     key={set.setNumber}
                     className="px-1.5 py-0.5 rounded bg-primary/10 text-foreground font-medium"
                   >
-                    {set.weight}×{set.reps}
+                    {set.weight === 0 ? set.reps : `${set.weight}×${set.reps}`}
                   </span>
                 ))}
               </div>

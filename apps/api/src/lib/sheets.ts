@@ -11,7 +11,7 @@ import { accounts } from "../db/schema.js";
 import { eq, and } from "drizzle-orm";
 
 /**
- * Parse a cell value like "70kg, 3" or "70kg,3" into weight and reps
+ * Parse a cell value like "70kg, 3" or "70kg,3" or just "10" (bodyweight reps) into weight and reps
  */
 export function parseSetValue(
   cellValue: string | null | undefined
@@ -20,18 +20,27 @@ export function parseSetValue(
     return null;
   }
 
-  // Handle various formats: "70kg, 3", "70kg,3", "70, 3", "70 3"
+  // Handle various formats: "70kg, 3", "70kg,3", "70, 3", "70 3", or just "10" (bodyweight)
   const cleanValue = cellValue.trim();
   if (!cleanValue) return null;
 
-  // Try to match patterns like "70kg, 3" or "70, 3"
-  const match = cleanValue.match(
+  // Try to match patterns with weight: "70kg, 3" or "70, 3"
+  const weightMatch = cleanValue.match(
     /^(\d+(?:\.\d+)?)\s*(?:kg)?\s*[,\s]\s*(\d+)$/i
   );
-  if (match) {
+  if (weightMatch) {
     return {
-      weight: parseFloat(match[1]),
-      reps: parseInt(match[2], 10),
+      weight: parseFloat(weightMatch[1]),
+      reps: parseInt(weightMatch[2], 10),
+    };
+  }
+
+  // Try to match bodyweight pattern: just a number (reps only)
+  const bodyweightMatch = cleanValue.match(/^(\d+)$/i);
+  if (bodyweightMatch) {
+    return {
+      weight: 0, // 0 weight indicates bodyweight exercise
+      reps: parseInt(bodyweightMatch[1], 10),
     };
   }
 
@@ -42,6 +51,10 @@ export function parseSetValue(
  * Format a set value back to sheet format
  */
 export function formatSetValue(weight: number, reps: number): string {
+  // If weight is 0, it's a bodyweight exercise - just return reps
+  if (weight === 0) {
+    return `${reps}`;
+  }
   return `${weight}kg, ${reps}`;
 }
 

@@ -228,6 +228,8 @@ interface SetBadgeProps {
 function SetBadge({ label, set, isWarmup }: SetBadgeProps) {
   if (!set) return null;
 
+  const isBodyweight = set.weight === 0;
+
   return (
     <div
       className={`flex flex-col items-center p-2 rounded-lg ${
@@ -237,8 +239,14 @@ function SetBadge({ label, set, isWarmup }: SetBadgeProps) {
       <span className="text-[10px] text-muted-foreground uppercase">
         {label}
       </span>
-      <span className="font-semibold text-sm">{set.weight}</span>
-      <span className="text-xs text-muted-foreground">×{set.reps}</span>
+      {isBodyweight ? (
+        <span className="font-semibold text-sm">{set.reps} reps</span>
+      ) : (
+        <>
+          <span className="font-semibold text-sm">{set.weight}</span>
+          <span className="text-xs text-muted-foreground">×{set.reps}</span>
+        </>
+      )}
     </div>
   );
 }

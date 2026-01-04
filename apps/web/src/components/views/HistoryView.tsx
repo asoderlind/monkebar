@@ -201,7 +201,9 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
                                       : "bg-secondary"
                                   }`}
                                 >
-                                  {set.weight}×{set.reps}
+                                  {set.weight === 0
+                                    ? `${set.reps}`
+                                    : `${set.weight}×${set.reps}`}
                                 </span>
                               ))}
                             </div>
