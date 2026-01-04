@@ -4,9 +4,19 @@ import type {
   BestSet,
   ExerciseStats,
   VolumeHistory,
+  DayOfWeek,
 } from "@monke-bar/shared";
 
 const API_BASE = "http://localhost:3001/api";
+
+// Workout log entry type for adding new workouts
+export interface WorkoutLogEntry {
+  date: string; // YYYY-MM-DD
+  day: DayOfWeek;
+  exercise: string;
+  warmup?: { weight: number; reps: number };
+  sets: Array<{ weight: number; reps: number }>;
+}
 
 async function fetchApi<T>(
   endpoint: string,
@@ -139,6 +149,42 @@ export function createSheetsApi(
             reps,
           }),
         }
+      ),
+  };
+}
+
+// Workout Log API for the new normalized sheet structure
+export function createWorkoutLogApi(
+  spreadsheetId: string,
+  sheetName: string = "Workout Log"
+) {
+  const params = buildSheetParams(spreadsheetId, sheetName);
+
+  return {
+    // Check if workout log sheet exists
+    check: () =>
+      fetchApi<{ exists: boolean; sheetName: string }>(
+        `/sheets/workout-log/check?${params}`
+      ),
+    // Create the workout log sheet
+    create: () =>
+      fetchApi<{ sheetName: string; created: boolean; message?: string }>(
+        "/sheets/workout-log/create",
+        {
+          method: "POST",
+          body: JSON.stringify({ spreadsheetId, sheetName }),
+        }
+      ),
+    // Add workout entries
+    addEntries: (entries: WorkoutLogEntry[]) =>
+      fetchApi<{ entriesAdded: number }>("/sheets/workout-log/entries", {
+        method: "POST",
+        body: JSON.stringify({ spreadsheetId, sheetName, entries }),
+      }),
+    // Sync workout log data
+    sync: () =>
+      fetchApi<{ weeks: WorkoutWeek[]; syncedAt: string }>(
+        `/sheets/workout-log/sync?${params}`
       ),
   };
 }

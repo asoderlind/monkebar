@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { fetchWorkoutData } from "../lib/sheets.js";
+import { fetchWorkoutLogData } from "../lib/sheets.js";
 import { requireAuth, type AuthContext } from "../lib/middleware.js";
 import type { DayOfWeek } from "@monke-bar/shared";
 
@@ -17,13 +17,13 @@ const sheetParamsSchema = z.object({
 
 /**
  * GET /api/workouts
- * Get all workouts from Google Sheets
+ * Get all workouts from Google Sheets (normalized format)
  */
 workoutsRoutes.get("/", zValidator("query", sheetParamsSchema), async (c) => {
   try {
     const user = c.get("user");
     const { spreadsheetId, sheetName } = c.req.valid("query");
-    const weeks = await fetchWorkoutData(user.id, spreadsheetId, sheetName);
+    const weeks = await fetchWorkoutLogData(user.id, spreadsheetId, sheetName);
 
     return c.json({
       success: true,
@@ -47,7 +47,11 @@ workoutsRoutes.get(
       const user = c.get("user");
       const weekNumber = parseInt(c.req.param("weekNumber"), 10);
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const weeks = await fetchWorkoutData(user.id, spreadsheetId, sheetName);
+      const weeks = await fetchWorkoutLogData(
+        user.id,
+        spreadsheetId,
+        sheetName
+      );
       const week = weeks.find((w) => w.weekNumber === weekNumber);
 
       if (!week) {
@@ -76,7 +80,11 @@ workoutsRoutes.get(
     try {
       const user = c.get("user");
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const weeks = await fetchWorkoutData(user.id, spreadsheetId, sheetName);
+      const weeks = await fetchWorkoutLogData(
+        user.id,
+        spreadsheetId,
+        sheetName
+      );
       const latestWeek = weeks.length > 0 ? weeks[weeks.length - 1] : null;
 
       return c.json({
@@ -102,7 +110,11 @@ workoutsRoutes.get(
       const user = c.get("user");
       const dayOfWeek = c.req.param("dayOfWeek") as DayOfWeek;
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const weeks = await fetchWorkoutData(user.id, spreadsheetId, sheetName);
+      const weeks = await fetchWorkoutLogData(
+        user.id,
+        spreadsheetId,
+        sheetName
+      );
 
       const dayWorkouts = weeks
         .map((week) => ({
@@ -133,7 +145,11 @@ workoutsRoutes.get(
     try {
       const user = c.get("user");
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const weeks = await fetchWorkoutData(user.id, spreadsheetId, sheetName);
+      const weeks = await fetchWorkoutLogData(
+        user.id,
+        spreadsheetId,
+        sheetName
+      );
       const exerciseSet = new Set<string>();
 
       weeks.forEach((week) => {
@@ -167,7 +183,11 @@ workoutsRoutes.get(
       const user = c.get("user");
       const exerciseName = decodeURIComponent(c.req.param("name"));
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const weeks = await fetchWorkoutData(user.id, spreadsheetId, sheetName);
+      const weeks = await fetchWorkoutLogData(
+        user.id,
+        spreadsheetId,
+        sheetName
+      );
 
       const exerciseHistory: Array<{
         weekNumber: number;

@@ -179,6 +179,69 @@ export const DAYS_OF_WEEK: DayOfWeek[] = [
 ];
 
 /**
+ * Muscle groups
+ */
+export type MuscleGroup =
+  | "Chest"
+  | "Triceps"
+  | "Shoulders"
+  | "Biceps"
+  | "Back"
+  | "Legs"
+  | "Core";
+
+/**
+ * Exercise to muscle group mapping
+ */
+export const EXERCISE_MUSCLE_GROUPS: Record<string, MuscleGroup> = {
+  "Flat Bench Press": "Chest",
+  "SH Triceps Rope Push": "Triceps",
+  "Shoulder Rotate Rope": "Shoulders",
+  "Rope SH Fly": "Shoulders",
+  "Rope Curls": "Biceps",
+  Chinups: "Back",
+  "Rope Face Pulls": "Back",
+  "Row Machine SH": "Back",
+  "Dumbell Shoulder Press": "Shoulders",
+  "Incline Smith Bench Press": "Chest",
+  "Yoga Ball Crunches": "Core",
+};
+
+/**
+ * Get muscle group for an exercise (case-insensitive partial match)
+ */
+export function getMuscleGroup(exerciseName: string): MuscleGroup | undefined {
+  // First try exact match
+  if (EXERCISE_MUSCLE_GROUPS[exerciseName]) {
+    return EXERCISE_MUSCLE_GROUPS[exerciseName];
+  }
+  // Then try case-insensitive partial match
+  const lowerName = exerciseName.toLowerCase();
+  for (const [exercise, group] of Object.entries(EXERCISE_MUSCLE_GROUPS)) {
+    if (
+      lowerName.includes(exercise.toLowerCase()) ||
+      exercise.toLowerCase().includes(lowerName)
+    ) {
+      return group;
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Muscle group colors for UI
+ */
+export const MUSCLE_GROUP_COLORS: Record<MuscleGroup, string> = {
+  Chest: "bg-red-500/20 text-red-700 dark:text-red-400",
+  Triceps: "bg-orange-500/20 text-orange-700 dark:text-orange-400",
+  Shoulders: "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400",
+  Biceps: "bg-green-500/20 text-green-700 dark:text-green-400",
+  Back: "bg-blue-500/20 text-blue-700 dark:text-blue-400",
+  Legs: "bg-purple-500/20 text-purple-700 dark:text-purple-400",
+  Core: "bg-pink-500/20 text-pink-700 dark:text-pink-400",
+};
+
+/**
  * Default column mapping based on the sheet structure shown in the image
  * Monday: B-G, Tuesday: H-M, etc.
  */

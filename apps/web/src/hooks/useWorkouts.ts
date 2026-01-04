@@ -3,6 +3,7 @@ import {
   createWorkoutsApi,
   createAnalyticsApi,
   createSheetsApi,
+  createWorkoutLogApi,
 } from "@/lib/api";
 import { toast } from "sonner";
 import { useMemo } from "react";
@@ -14,6 +15,7 @@ function useApiClients(spreadsheetId: string, sheetName: string) {
       workouts: createWorkoutsApi(spreadsheetId, sheetName),
       analytics: createAnalyticsApi(spreadsheetId, sheetName),
       sheets: createSheetsApi(spreadsheetId, sheetName),
+      workoutLog: createWorkoutLogApi(spreadsheetId, sheetName),
     }),
     [spreadsheetId, sheetName]
   );
@@ -213,6 +215,49 @@ export function useUpdateCell(
     },
     onError: (error) => {
       toast.error(`Update failed: ${error.message}`);
+    },
+  });
+}
+
+// Workout Log hooks (for the normalized format)
+export function useWorkoutLogData(spreadsheetId: string, sheetName: string) {
+  const { workoutLog } = useApiClients(spreadsheetId, sheetName);
+
+  return useQuery({
+    queryKey: ["workout-log", spreadsheetId, sheetName],
+    queryFn: () => workoutLog.sync(),
+    enabled: !!spreadsheetId && !!sheetName,
+  });
+}
+
+export function useWorkoutLogSync(spreadsheetId: string, sheetName: string) {
+  const queryClient = useQueryClient();
+  const { workoutLog } = useApiClients(spreadsheetId, sheetName);
+
+  return useMutation({
+    mutationFn: () => workoutLog.sync(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workout-log"] });
+      toast.success("Synced workout log");
+    },
+    onError: (error) => {
+      toast.error(`Sync failed: ${error.message}`);
+    },
+  });
+}
+
+export function useAddWorkoutEntries(spreadsheetId: string, sheetName: string) {
+  const queryClient = useQueryClient();
+  const { workoutLog } = useApiClients(spreadsheetId, sheetName);
+
+  return useMutation({
+    mutationFn: workoutLog.addEntries,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workout-log"] });
+      toast.success("Workout saved!");
+    },
+    onError: (error) => {
+      toast.error(`Failed to save: ${error.message}`);
     },
   });
 }

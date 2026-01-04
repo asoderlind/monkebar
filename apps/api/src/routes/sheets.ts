@@ -2,11 +2,15 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import {
-  fetchWorkoutData,
+  fetchWorkoutLogData,
   getSpreadsheetInfo,
   updateCell,
   formatSetValue,
   listUserSpreadsheets,
+  sheetExists,
+  createWorkoutLogSheet,
+  appendWorkoutEntries,
+  type WorkoutLogEntry,
 } from "../lib/sheets.js";
 import { requireAuth, type AuthContext } from "../lib/middleware.js";
 import { db } from "../db/index.js";
@@ -76,7 +80,7 @@ sheetsRoutes.get("/sync", zValidator("query", syncSchema), async (c) => {
       })
       .returning();
 
-    const weeks = await fetchWorkoutData(user.id, spreadsheetId, sheetName);
+    const weeks = await fetchWorkoutLogData(user.id, spreadsheetId, sheetName);
 
     // Update sync log
     await db
@@ -160,6 +164,174 @@ sheetsRoutes.post(
       return c.json({
         success: true,
         data: { row, col, value },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return c.json({ success: false, error: message }, 500);
+    }
+  }
+);
+
+/**
+ * POST /api/sheets/workout-log/create
+ * Create a new workout log sheet with normalized structure
+ */
+const createLogSchema = z.object({
+  spreadsheetId: z.string().min(1),
+  sheetName: z.string().optional().default("Workout Log"),
+});
+
+sheetsRoutes.post(
+  "/workout-log/create",
+  zValidator("json", createLogSchema),
+  async (c) => {
+    try {
+      const user = c.get("user");
+      const { spreadsheetId, sheetName } = c.req.valid("json");
+
+      // Check if sheet already exists
+      const exists = await sheetExists(user.id, spreadsheetId, sheetName);
+      if (exists) {
+        return c.json({
+          success: true,
+          data: { sheetName, created: false, message: "Sheet already exists" },
+        });
+      }
+
+      await createWorkoutLogSheet(user.id, spreadsheetId, sheetName);
+
+      return c.json({
+        success: true,
+        data: { sheetName, created: true },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return c.json({ success: false, error: message }, 500);
+    }
+  }
+);
+
+/**
+ * GET /api/sheets/workout-log/check
+ * Check if workout log sheet exists
+ */
+const checkLogSchema = z.object({
+  spreadsheetId: z.string().min(1),
+  sheetName: z.string().optional().default("Workout Log"),
+});
+
+sheetsRoutes.get(
+  "/workout-log/check",
+  zValidator("query", checkLogSchema),
+  async (c) => {
+    try {
+      const user = c.get("user");
+      const { spreadsheetId, sheetName } = c.req.valid("query");
+
+      const exists = await sheetExists(user.id, spreadsheetId, sheetName);
+
+      return c.json({
+        success: true,
+        data: { exists, sheetName },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return c.json({ success: false, error: message }, 500);
+    }
+  }
+);
+
+/**
+ * POST /api/sheets/workout-log/entries
+ * Add workout entries to the log
+ */
+const addEntriesSchema = z.object({
+  spreadsheetId: z.string().min(1),
+  sheetName: z.string().optional().default("Workout Log"),
+  entries: z.array(
+    z.object({
+      date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+      day: z.enum([
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday",
+      ]),
+      exercise: z.string().min(1),
+      warmup: z
+        .object({
+          weight: z.number().min(0),
+          reps: z.number().min(0),
+        })
+        .optional(),
+      sets: z.array(
+        z.object({
+          weight: z.number().min(0),
+          reps: z.number().min(0),
+        })
+      ),
+    })
+  ),
+});
+
+sheetsRoutes.post(
+  "/workout-log/entries",
+  zValidator("json", addEntriesSchema),
+  async (c) => {
+    try {
+      const user = c.get("user");
+      const { spreadsheetId, sheetName, entries } = c.req.valid("json");
+
+      const count = await appendWorkoutEntries(
+        user.id,
+        spreadsheetId,
+        sheetName,
+        entries as WorkoutLogEntry[]
+      );
+
+      return c.json({
+        success: true,
+        data: { entriesAdded: count },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return c.json({ success: false, error: message }, 500);
+    }
+  }
+);
+
+/**
+ * GET /api/sheets/workout-log/sync
+ * Sync data from workout log sheet (normalized format)
+ */
+const syncLogSchema = z.object({
+  spreadsheetId: z.string().min(1),
+  sheetName: z.string().optional().default("Workout Log"),
+});
+
+sheetsRoutes.get(
+  "/workout-log/sync",
+  zValidator("query", syncLogSchema),
+  async (c) => {
+    try {
+      const user = c.get("user");
+      const { spreadsheetId, sheetName } = c.req.valid("query");
+
+      const weeks = await fetchWorkoutLogData(
+        user.id,
+        spreadsheetId,
+        sheetName
+      );
+
+      return c.json({
+        success: true,
+        data: {
+          weeks,
+          syncedAt: new Date().toISOString(),
+        },
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";

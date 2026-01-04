@@ -1,9 +1,8 @@
 node_modules
 */node_modules
 **/node_modules
-dist
-*/dist
-**/dist
+# Exclude dist folders except for shared package (needed for monorepo)
+apps/*/dist
 .git
 .gitignore
 *.md

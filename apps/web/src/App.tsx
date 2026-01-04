@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useSession } from "./lib/auth";
 import { WorkoutView } from "./components/views/WorkoutView";
+import { LogWorkoutView } from "./components/views/LogWorkoutView";
 import { AnalyticsView } from "./components/views/AnalyticsView";
 import { HistoryView } from "./components/views/HistoryView";
 import { SettingsView } from "./components/views/SettingsView";
@@ -9,7 +10,7 @@ import { Navigation } from "./components/Navigation";
 import { Header } from "./components/Header";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 
-type View = "workout" | "analytics" | "history" | "settings";
+type View = "workout" | "log" | "analytics" | "history" | "settings";
 
 function App() {
   const { data: session, isPending } = useSession();
@@ -59,6 +60,9 @@ function App() {
       <main className="flex-1 pb-20">
         {currentView === "workout" && (
           <WorkoutView spreadsheetId={spreadsheetId} sheetName={sheetName} />
+        )}
+        {currentView === "log" && (
+          <LogWorkoutView spreadsheetId={spreadsheetId} sheetName={sheetName} />
         )}
         {currentView === "analytics" && (
           <AnalyticsView spreadsheetId={spreadsheetId} sheetName={sheetName} />

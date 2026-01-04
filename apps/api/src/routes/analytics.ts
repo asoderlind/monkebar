@@ -1,7 +1,7 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { fetchWorkoutData } from "../lib/sheets.js";
+import { fetchWorkoutLogData } from "../lib/sheets.js";
 import { requireAuth, type AuthContext } from "../lib/middleware.js";
 import type {
   BestSet,
@@ -49,7 +49,7 @@ analyticsRoutes.get(
         weeks: weeksStr,
       } = c.req.valid("query");
       const weeks = parseInt(weeksStr, 10);
-      const workoutData = await fetchWorkoutData(
+      const workoutData = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
@@ -113,7 +113,7 @@ analyticsRoutes.get(
       const user = c.get("user");
       const exerciseName = decodeURIComponent(c.req.param("name"));
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const workoutData = await fetchWorkoutData(
+      const workoutData = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
@@ -178,7 +178,7 @@ analyticsRoutes.get(
       const user = c.get("user");
       const exerciseName = decodeURIComponent(c.req.param("name"));
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const workoutData = await fetchWorkoutData(
+      const workoutData = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
@@ -312,7 +312,7 @@ analyticsRoutes.get(
     try {
       const user = c.get("user");
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const workoutData = await fetchWorkoutData(
+      const workoutData = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
@@ -368,7 +368,7 @@ analyticsRoutes.get(
     try {
       const user = c.get("user");
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const workoutData = await fetchWorkoutData(
+      const workoutData = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName

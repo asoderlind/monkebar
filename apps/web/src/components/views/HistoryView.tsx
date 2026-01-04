@@ -38,8 +38,8 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
     );
   }
 
-  // Reverse to show most recent first
-  const sortedWeeks = [...weeks].reverse();
+  // Sort by week number (oldest first)
+  const sortedWeeks = [...weeks].sort((a, b) => a.weekNumber - b.weekNumber);
 
   // Filter by exercise if selected
   const filteredWeeks = filterExercise

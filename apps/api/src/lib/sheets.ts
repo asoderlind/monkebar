@@ -407,3 +407,280 @@ export async function listUserSpreadsheets(userId: string) {
 
   return response.data.files || [];
 }
+
+/**
+ * Workout Log Sheet Structure (normalized, easy to parse and append)
+ * Columns: Date | Day | Exercise | Warmup | Set1 | Set2 | Set3 | Set4
+ */
+const WORKOUT_LOG_HEADERS = [
+  "Date",
+  "Day",
+  "Exercise",
+  "Warmup",
+  "Set1",
+  "Set2",
+  "Set3",
+  "Set4",
+];
+
+/**
+ * Check if a sheet exists in a spreadsheet
+ */
+export async function sheetExists(
+  userId: string,
+  spreadsheetId: string,
+  sheetName: string
+): Promise<boolean> {
+  const info = await getSpreadsheetInfo(userId, spreadsheetId);
+  return info.sheets?.some((s) => s.title === sheetName) ?? false;
+}
+
+/**
+ * Create a new sheet in the spreadsheet with headers
+ */
+export async function createWorkoutLogSheet(
+  userId: string,
+  spreadsheetId: string,
+  sheetName: string = "Workout Log"
+): Promise<void> {
+  const sheets = await getSheetsClient(userId);
+
+  // First create the sheet
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          addSheet: {
+            properties: {
+              title: sheetName,
+            },
+          },
+        },
+      ],
+    },
+  });
+
+  // Then add headers
+  await sheets.spreadsheets.values.update({
+    spreadsheetId,
+    range: `${sheetName}!A1:I1`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: {
+      values: [WORKOUT_LOG_HEADERS],
+    },
+  });
+
+  // Format the header row (bold, frozen)
+  const sheetInfo = await getSpreadsheetInfo(userId, spreadsheetId);
+  const newSheet = sheetInfo.sheets?.find((s) => s.title === sheetName);
+
+  if (newSheet?.sheetId !== undefined) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId,
+      requestBody: {
+        requests: [
+          {
+            repeatCell: {
+              range: {
+                sheetId: newSheet.sheetId,
+                startRowIndex: 0,
+                endRowIndex: 1,
+              },
+              cell: {
+                userEnteredFormat: {
+                  textFormat: { bold: true },
+                  backgroundColor: { red: 0.9, green: 0.9, blue: 0.9 },
+                },
+              },
+              fields: "userEnteredFormat(textFormat,backgroundColor)",
+            },
+          },
+          {
+            updateSheetProperties: {
+              properties: {
+                sheetId: newSheet.sheetId,
+                gridProperties: {
+                  frozenRowCount: 1,
+                },
+              },
+              fields: "gridProperties.frozenRowCount",
+            },
+          },
+          // Set column widths
+          {
+            updateDimensionProperties: {
+              range: {
+                sheetId: newSheet.sheetId,
+                dimension: "COLUMNS",
+                startIndex: 0,
+                endIndex: 1, // Date column
+              },
+              properties: { pixelSize: 100 },
+              fields: "pixelSize",
+            },
+          },
+          {
+            updateDimensionProperties: {
+              range: {
+                sheetId: newSheet.sheetId,
+                dimension: "COLUMNS",
+                startIndex: 3,
+                endIndex: 4, // Exercise column
+              },
+              properties: { pixelSize: 180 },
+              fields: "pixelSize",
+            },
+          },
+        ],
+      },
+    });
+  }
+}
+
+/**
+ * Workout entry for the log
+ */
+export interface WorkoutLogEntry {
+  date: string; // YYYY-MM-DD format
+  day: DayOfWeek;
+  exercise: string;
+  warmup?: { weight: number; reps: number };
+  sets: Array<{ weight: number; reps: number }>;
+}
+
+/**
+ * Append workout entries to the log sheet
+ */
+export async function appendWorkoutEntries(
+  userId: string,
+  spreadsheetId: string,
+  sheetName: string,
+  entries: WorkoutLogEntry[]
+): Promise<number> {
+  const sheets = await getSheetsClient(userId);
+
+  const rows = entries.map((entry) => [
+    entry.date,
+    entry.day,
+    entry.exercise,
+    entry.warmup ? formatSetValue(entry.warmup.weight, entry.warmup.reps) : "",
+    entry.sets[0]
+      ? formatSetValue(entry.sets[0].weight, entry.sets[0].reps)
+      : "",
+    entry.sets[1]
+      ? formatSetValue(entry.sets[1].weight, entry.sets[1].reps)
+      : "",
+    entry.sets[2]
+      ? formatSetValue(entry.sets[2].weight, entry.sets[2].reps)
+      : "",
+    entry.sets[3]
+      ? formatSetValue(entry.sets[3].weight, entry.sets[3].reps)
+      : "",
+  ]);
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: `${sheetName}!A:H`,
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: {
+      values: rows,
+    },
+  });
+
+  return rows.length;
+}
+
+/**
+ * Get week number from a date string (YYYY-MM-DD)
+ */
+function getWeekNumberFromDate(dateStr: string): number {
+  const date = new Date(dateStr);
+  const startOfYear = new Date(date.getFullYear(), 0, 1);
+  const days = Math.floor(
+    (date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000)
+  );
+  return Math.ceil((days + startOfYear.getDay() + 1) / 7);
+}
+
+/**
+ * Fetch workout log data (normalized format)
+ * Sheet format: Date | Day | Exercise | Warmup | Set1 | Set2 | Set3 | Set4
+ */
+export async function fetchWorkoutLogData(
+  userId: string,
+  spreadsheetId: string,
+  sheetName: string = "Workout Log"
+): Promise<WorkoutWeek[]> {
+  const sheets = await getSheetsClient(userId);
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheetName}!A:H`,
+  });
+
+  const rows = response.data.values || [];
+  if (rows.length < 2) {
+    return []; // Need header + data
+  }
+
+  // Group by week (calculated from date)
+  const weekMap = new Map<number, Map<DayOfWeek, Exercise[]>>();
+
+  // Skip header row
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    const dateStr = row[0]?.toString();
+    const day = row[1]?.toString() as DayOfWeek;
+    const exerciseName = row[2]?.toString();
+
+    if (!dateStr || !day || !exerciseName) continue;
+
+    // Calculate week from date
+    const week = getWeekNumberFromDate(dateStr);
+
+    if (!weekMap.has(week)) {
+      weekMap.set(week, new Map());
+    }
+    const dayMap = weekMap.get(week)!;
+
+    if (!dayMap.has(day)) {
+      dayMap.set(day, []);
+    }
+
+    const sets: WorkoutSet[] = [];
+
+    // Warmup (column D, index 3)
+    const warmup = parseSetValue(row[3]?.toString());
+    if (warmup) {
+      sets.push({ ...warmup, isWarmup: true, setNumber: 0 });
+    }
+
+    // Sets 1-4 (columns E-H, index 4-7)
+    for (let s = 0; s < 4; s++) {
+      const setValue = parseSetValue(row[4 + s]?.toString());
+      if (setValue) {
+        sets.push({ ...setValue, isWarmup: false, setNumber: s + 1 });
+      }
+    }
+
+    dayMap.get(day)!.push({
+      id: `${i}-${day}-${exerciseName}`,
+      name: exerciseName,
+      sets,
+    });
+  }
+
+  // Convert to WorkoutWeek array
+  const weeks: WorkoutWeek[] = [];
+  for (const [weekNumber, dayMap] of weekMap.entries()) {
+    const days = Array.from(dayMap.entries()).map(([dayOfWeek, exercises]) => ({
+      dayOfWeek,
+      exercises,
+    }));
+    weeks.push({ weekNumber, days });
+  }
+
+  return weeks.sort((a, b) => a.weekNumber - b.weekNumber);
+}
