@@ -593,15 +593,20 @@ export async function appendWorkoutEntries(
 }
 
 /**
- * Get week number from a date string (YYYY-MM-DD)
+ * Get week number and year from a date string (YYYY-MM-DD)
  */
-function getWeekNumberFromDate(dateStr: string): number {
+function getWeekAndYearFromDate(dateStr: string): {
+  week: number;
+  year: number;
+} {
   const date = new Date(dateStr);
-  const startOfYear = new Date(date.getFullYear(), 0, 1);
+  const year = date.getFullYear();
+  const startOfYear = new Date(year, 0, 1);
   const days = Math.floor(
     (date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000)
   );
-  return Math.ceil((days + startOfYear.getDay() + 1) / 7);
+  const week = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+  return { week, year };
 }
 
 /**
@@ -625,8 +630,11 @@ export async function fetchWorkoutLogData(
     return []; // Need header + data
   }
 
-  // Group by week (calculated from date)
-  const weekMap = new Map<number, Map<DayOfWeek, Exercise[]>>();
+  // Group by year-week (calculated from date)
+  const weekMap = new Map<
+    string,
+    { year: number; week: number; dayMap: Map<DayOfWeek, Exercise[]> }
+  >();
 
   // Skip header row
   for (let i = 1; i < rows.length; i++) {
@@ -637,13 +645,14 @@ export async function fetchWorkoutLogData(
 
     if (!dateStr || !day || !exerciseName) continue;
 
-    // Calculate week from date
-    const week = getWeekNumberFromDate(dateStr);
+    // Calculate week and year from date
+    const { week, year } = getWeekAndYearFromDate(dateStr);
+    const key = `${year}-${week}`;
 
-    if (!weekMap.has(week)) {
-      weekMap.set(week, new Map());
+    if (!weekMap.has(key)) {
+      weekMap.set(key, { year, week, dayMap: new Map() });
     }
-    const dayMap = weekMap.get(week)!;
+    const { dayMap } = weekMap.get(key)!;
 
     if (!dayMap.has(day)) {
       dayMap.set(day, []);
@@ -674,13 +683,14 @@ export async function fetchWorkoutLogData(
 
   // Convert to WorkoutWeek array
   const weeks: WorkoutWeek[] = [];
-  for (const [weekNumber, dayMap] of weekMap.entries()) {
+  for (const [, { year, week, dayMap }] of weekMap.entries()) {
     const days = Array.from(dayMap.entries()).map(([dayOfWeek, exercises]) => ({
       dayOfWeek,
       exercises,
     }));
-    weeks.push({ weekNumber, days });
+    weeks.push({ weekNumber: week, year, days });
   }
 
-  return weeks.sort((a, b) => a.weekNumber - b.weekNumber);
+  // Sort by year first, then by week number
+  return weeks.sort((a, b) => a.year - b.year || a.weekNumber - b.weekNumber);
 }

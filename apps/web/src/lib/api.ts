@@ -66,6 +66,8 @@ export function createWorkoutsApi(
         exerciseName: string;
         history: Array<{
           weekNumber: number;
+          year: number;
+          date?: string;
           dayOfWeek: string;
           sets: Array<{
             weight: number;

@@ -53,6 +53,7 @@ export interface WorkoutDay {
  */
 export interface WorkoutWeek {
   weekNumber: number;
+  year: number;
   startDate?: string; // ISO date string
   days: WorkoutDay[];
 }

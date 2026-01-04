@@ -191,6 +191,8 @@ workoutsRoutes.get(
 
       const exerciseHistory: Array<{
         weekNumber: number;
+        year: number;
+        date?: string;
         dayOfWeek: DayOfWeek;
         sets: Array<{
           weight: number;
@@ -208,6 +210,8 @@ workoutsRoutes.get(
           if (exercise) {
             exerciseHistory.push({
               weekNumber: week.weekNumber,
+              year: week.year,
+              date: day.date,
               dayOfWeek: day.dayOfWeek,
               sets: exercise.sets,
             });

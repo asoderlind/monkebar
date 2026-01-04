@@ -2,8 +2,16 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Trash2, Save, ChevronDown, Check, Loader2 } from "lucide-react";
-import { useAddWorkoutEntries } from "@/hooks/useWorkouts";
+import {
+  Plus,
+  Trash2,
+  Save,
+  ChevronDown,
+  Check,
+  Loader2,
+  History,
+} from "lucide-react";
+import { useAddWorkoutEntries, useExerciseHistory } from "@/hooks/useWorkouts";
 import type { WorkoutLogEntry } from "@/lib/api";
 import type { DayOfWeek } from "@monke-bar/shared";
 import {
@@ -50,6 +58,87 @@ interface ExerciseInput {
 interface LogWorkoutViewProps {
   spreadsheetId: string;
   sheetName: string;
+}
+
+// Component to show last 2 sessions for an exercise
+function ExerciseHistoryPreview({
+  exerciseName,
+  spreadsheetId,
+  sheetName,
+}: {
+  exerciseName: string;
+  spreadsheetId: string;
+  sheetName: string;
+}) {
+  const { data, isLoading } = useExerciseHistory(
+    exerciseName,
+    spreadsheetId,
+    sheetName
+  );
+
+  if (!exerciseName || isLoading) return null;
+  if (!data?.history || data.history.length === 0) return null;
+
+  // Get last 2 sessions (sorted by year/week, most recent first)
+  const lastSessions = [...data.history]
+    .sort((a, b) => {
+      const yearA = a.year || 0;
+      const yearB = b.year || 0;
+      if (yearB !== yearA) return yearB - yearA;
+      return b.weekNumber - a.weekNumber;
+    })
+    .slice(0, 2);
+
+  if (lastSessions.length === 0) return null;
+
+  return (
+    <div className="mx-4 mb-3 p-3 bg-secondary/50 rounded-lg border border-border/50">
+      <div className="flex items-center gap-2 mb-2">
+        <History className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="text-xs font-medium text-muted-foreground uppercase">
+          Previous Sessions
+        </span>
+      </div>
+      <div className="space-y-2">
+        {lastSessions.map((session, idx) => {
+          const workingSets = session.sets.filter((s) => !s.isWarmup);
+          const warmupSet = session.sets.find((s) => s.isWarmup);
+          const dateStr = session.date
+            ? new Date(session.date).toLocaleDateString("en-US", {
+                month: "short",
+                day: "numeric",
+              })
+            : `W${session.weekNumber}`;
+
+          return (
+            <div
+              key={idx}
+              className="flex items-center justify-between text-xs"
+            >
+              <span className="text-muted-foreground min-w-[70px]">
+                {dateStr} ({session.dayOfWeek.slice(0, 3)})
+              </span>
+              <div className="flex items-center gap-1 flex-wrap justify-end">
+                {warmupSet && (
+                  <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                    W: {warmupSet.weight}×{warmupSet.reps}
+                  </span>
+                )}
+                {workingSets.map((set) => (
+                  <span
+                    key={set.setNumber}
+                    className="px-1.5 py-0.5 rounded bg-primary/10 text-foreground font-medium"
+                  >
+                    {set.weight}×{set.reps}
+                  </span>
+                ))}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export function LogWorkoutView({
@@ -261,7 +350,7 @@ export function LogWorkoutView({
 
                   {/* Exercise dropdown */}
                   {showExerciseDropdown === exIndex && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-background border rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-card border rounded-md shadow-lg z-10 max-h-48 overflow-y-auto">
                       {knownExercises
                         .filter((name) =>
                           name
@@ -312,6 +401,14 @@ export function LogWorkoutView({
                 )}
               </div>
             </CardHeader>
+
+            {/* Show last 2 sessions for this exercise */}
+            <ExerciseHistoryPreview
+              exerciseName={exercise.name}
+              spreadsheetId={spreadsheetId}
+              sheetName={sheetName}
+            />
+
             <CardContent>
               {/* Warmup */}
               <div className="mb-3">

@@ -38,8 +38,10 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
     );
   }
 
-  // Sort by week number (oldest first)
-  const sortedWeeks = [...weeks].sort((a, b) => a.weekNumber - b.weekNumber);
+  // Sort by year and week number (oldest first)
+  const sortedWeeks = [...weeks].sort(
+    (a, b) => a.year - b.year || a.weekNumber - b.weekNumber
+  );
 
   // Filter by exercise if selected
   const filteredWeeks = filterExercise
@@ -114,19 +116,21 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
       {/* Week List */}
       <div className="space-y-3">
         {filteredWeeks.map((week) => (
-          <Card key={week.weekNumber}>
+          <Card key={`${week.year}-${week.weekNumber}`}>
             <button
-              onClick={() => toggleWeek(week.weekNumber)}
+              onClick={() => toggleWeek(week.year * 100 + week.weekNumber)}
               className="w-full"
             >
               <CardHeader className="pb-2">
-                <CardTitle className="text-base flex items-center justify-between">
-                  <span>Week {week.weekNumber}</span>
-                  <div className="flex items-center gap-2">
+                <CardTitle className="text-base flex items-center justify-center">
+                  <span>
+                    Week {week.weekNumber}, {week.year}
+                  </span>
+                  <div className="flex items-center gap-2 ml-auto">
                     <span className="text-xs text-muted-foreground">
                       {week.days.length} days
                     </span>
-                    {expandedWeek === week.weekNumber ? (
+                    {expandedWeek === week.year * 100 + week.weekNumber ? (
                       <ChevronUp className="h-4 w-4" />
                     ) : (
                       <ChevronDown className="h-4 w-4" />
@@ -136,7 +140,7 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
               </CardHeader>
             </button>
 
-            {expandedWeek === week.weekNumber && (
+            {expandedWeek === week.year * 100 + week.weekNumber && (
               <CardContent className="pt-0">
                 <div className="space-y-4">
                   {week.days.map((day) => (
