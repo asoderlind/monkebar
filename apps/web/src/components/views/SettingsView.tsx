@@ -31,7 +31,9 @@ export function SettingsView({
   const { data: spreadsheets, isLoading } = useQuery({
     queryKey: ["spreadsheets"],
     queryFn: async () => {
-      const res = await fetch("http://localhost:3001/api/sheets/spreadsheets", {
+      const API_BASE =
+        import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+      const res = await fetch(`${API_BASE}/sheets/spreadsheets`, {
         credentials: "include",
       });
       const data = await res.json();
@@ -48,8 +50,10 @@ export function SettingsView({
   const { data: sheetInfo } = useQuery({
     queryKey: ["sheetInfo", spreadsheetId],
     queryFn: async () => {
+      const API_BASE =
+        import.meta.env.VITE_API_URL || "http://localhost:3001/api";
       const res = await fetch(
-        `http://localhost:3001/api/sheets/info?spreadsheetId=${spreadsheetId}`,
+        `${API_BASE}/sheets/info?spreadsheetId=${spreadsheetId}`,
         {
           credentials: "include",
         }
