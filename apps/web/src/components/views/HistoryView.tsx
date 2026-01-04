@@ -3,7 +3,12 @@ import { useWorkouts, useExerciseList } from "@/hooks/useWorkouts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
-import { getWeekNumber, getYear, getDayOfWeek, type Workout } from "@monke-bar/shared";
+import {
+  getWeekNumber,
+  getYear,
+  getDayOfWeek,
+  type Workout,
+} from "@monke-bar/shared";
 
 interface HistoryViewProps {
   spreadsheetId: string;
