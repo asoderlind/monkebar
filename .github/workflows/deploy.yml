@@ -80,7 +80,7 @@ jobs:
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           source: "docker-compose.prod.yml"
-          target: "/opt/monke-bar"
+          target: "~/monke-bar"
 
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1.0.3
@@ -90,8 +90,8 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           envs: GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,BETTER_AUTH_SECRET
           script: |
-            mkdir -p /opt/monke-bar
-            cd /opt/monke-bar
+            mkdir -p ~/monke-bar
+            cd ~/monke-bar
 
             # Write environment file from GitHub secrets
             cat > .env << EOF
