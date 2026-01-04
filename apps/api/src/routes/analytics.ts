@@ -8,8 +8,8 @@ import type {
   TrendDataPoint,
   ExerciseStats,
   VolumeHistory,
-  DayOfWeek,
 } from "@monke-bar/shared";
+import { getDayOfWeek, getWeekNumber, getYear } from "@monke-bar/shared";
 
 export const analyticsRoutes = new Hono<{ Variables: AuthContext }>();
 
@@ -30,62 +30,58 @@ function calculateVolume(weight: number, reps: number): number {
 
 /**
  * GET /api/analytics/best-sets
- * Get best sets for all exercises in the last N weeks
+ * Get best sets for all exercises in the last N days
  */
 analyticsRoutes.get(
   "/best-sets",
   zValidator(
     "query",
     sheetParamsSchema.extend({
-      weeks: z.string().optional().default("4"),
+      days: z.string().optional().default("30"),
     })
   ),
   async (c) => {
     try {
       const user = c.get("user");
-      const {
-        spreadsheetId,
-        sheetName,
-        weeks: weeksStr,
-      } = c.req.valid("query");
-      const weeks = parseInt(weeksStr, 10);
-      const workoutData = await fetchWorkoutLogData(
+      const { spreadsheetId, sheetName, days: daysStr } = c.req.valid("query");
+      const days = parseInt(daysStr, 10);
+      const workouts = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
       );
 
-      // Get the last N weeks
-      const recentWeeks = workoutData.slice(-weeks);
+      // Get workouts from the last N days
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+      const cutoffStr = cutoffDate.toISOString().split("T")[0];
+
+      const recentWorkouts = workouts.filter((w) => w.date >= cutoffStr);
 
       const bestSets: Record<string, BestSet> = {};
 
-      recentWeeks.forEach((week) => {
-        week.days.forEach((day) => {
-          day.exercises.forEach((exercise) => {
-            // Find best set (highest weight with at least 1 rep, excluding warmup)
-            const workingSets = exercise.sets.filter((s) => !s.isWarmup);
+      recentWorkouts.forEach((workout) => {
+        workout.exercises.forEach((exercise) => {
+          const workingSets = exercise.sets.filter((s) => !s.isWarmup);
 
-            workingSets.forEach((set) => {
-              const volume = calculateVolume(set.weight, set.reps);
-              const current = bestSets[exercise.name];
+          workingSets.forEach((set) => {
+            const volume = calculateVolume(set.weight, set.reps);
+            const current = bestSets[exercise.name];
 
-              // Best by weight first, then by reps
-              if (
-                !current ||
-                set.weight > current.weight ||
-                (set.weight === current.weight && set.reps > current.reps)
-              ) {
-                bestSets[exercise.name] = {
-                  exerciseName: exercise.name,
-                  weight: set.weight,
-                  reps: set.reps,
-                  volume,
-                  date: day.date || "",
-                  weekNumber: week.weekNumber,
-                };
-              }
-            });
+            // Best by weight first, then by reps
+            if (
+              !current ||
+              set.weight > current.weight ||
+              (set.weight === current.weight && set.reps > current.reps)
+            ) {
+              bestSets[exercise.name] = {
+                exerciseName: exercise.name,
+                weight: set.weight,
+                reps: set.reps,
+                volume,
+                date: workout.date,
+              };
+            }
           });
         });
       });
@@ -113,7 +109,7 @@ analyticsRoutes.get(
       const user = c.get("user");
       const exerciseName = decodeURIComponent(c.req.param("name"));
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const workoutData = await fetchWorkoutLogData(
+      const workouts = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
@@ -121,35 +117,32 @@ analyticsRoutes.get(
 
       const trends: TrendDataPoint[] = [];
 
-      workoutData.forEach((week) => {
-        week.days.forEach((day) => {
-          const exercise = day.exercises.find(
-            (e) => e.name.toLowerCase() === exerciseName.toLowerCase()
-          );
+      workouts.forEach((workout) => {
+        const exercise = workout.exercises.find(
+          (e) => e.name.toLowerCase() === exerciseName.toLowerCase()
+        );
 
-          if (exercise) {
-            const workingSets = exercise.sets.filter((s) => !s.isWarmup);
+        if (exercise) {
+          const workingSets = exercise.sets.filter((s) => !s.isWarmup);
 
-            if (workingSets.length > 0) {
-              const maxWeight = Math.max(...workingSets.map((s) => s.weight));
-              const totalVolume = workingSets.reduce(
-                (acc, s) => acc + calculateVolume(s.weight, s.reps),
-                0
-              );
-              const totalReps = workingSets.reduce((acc, s) => acc + s.reps, 0);
-              const averageWeight = totalVolume / totalReps;
+          if (workingSets.length > 0) {
+            const maxWeight = Math.max(...workingSets.map((s) => s.weight));
+            const totalVolume = workingSets.reduce(
+              (acc, s) => acc + calculateVolume(s.weight, s.reps),
+              0
+            );
+            const totalReps = workingSets.reduce((acc, s) => acc + s.reps, 0);
+            const averageWeight = totalVolume / totalReps;
 
-              trends.push({
-                date: day.date || `Week ${week.weekNumber} ${day.dayOfWeek}`,
-                weekNumber: week.weekNumber,
-                maxWeight,
-                totalVolume,
-                totalReps,
-                averageWeight,
-              });
-            }
+            trends.push({
+              date: workout.date,
+              maxWeight,
+              totalVolume,
+              totalReps,
+              averageWeight,
+            });
           }
-        });
+        }
       });
 
       return c.json({
@@ -178,101 +171,97 @@ analyticsRoutes.get(
       const user = c.get("user");
       const exerciseName = decodeURIComponent(c.req.param("name"));
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const workoutData = await fetchWorkoutLogData(
+      const workouts = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
       );
 
       let currentPR: BestSet | null = null;
-      let last4WeeksBest: BestSet | null = null;
+      let last30DaysBest: BestSet | null = null;
       const trends: TrendDataPoint[] = [];
       let totalSessions = 0;
 
-      // Get the last 4 weeks for "recent" best
-      const recentWeeks = workoutData.slice(-4);
+      // Get the last 30 days
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 30);
+      const cutoffStr = cutoffDate.toISOString().split("T")[0];
+      const recentWorkouts = workouts.filter((w) => w.date >= cutoffStr);
 
-      workoutData.forEach((week) => {
-        week.days.forEach((day) => {
-          const exercise = day.exercises.find(
-            (e) => e.name.toLowerCase() === exerciseName.toLowerCase()
-          );
+      workouts.forEach((workout) => {
+        const exercise = workout.exercises.find(
+          (e) => e.name.toLowerCase() === exerciseName.toLowerCase()
+        );
 
-          if (exercise) {
-            totalSessions++;
-            const workingSets = exercise.sets.filter((s) => !s.isWarmup);
+        if (exercise) {
+          totalSessions++;
+          const workingSets = exercise.sets.filter((s) => !s.isWarmup);
 
-            workingSets.forEach((set) => {
-              const volume = calculateVolume(set.weight, set.reps);
-              const setData: BestSet = {
+          workingSets.forEach((set) => {
+            const volume = calculateVolume(set.weight, set.reps);
+            const setData: BestSet = {
+              exerciseName: exercise.name,
+              weight: set.weight,
+              reps: set.reps,
+              volume,
+              date: workout.date,
+            };
+
+            // All-time PR
+            if (
+              !currentPR ||
+              set.weight > currentPR.weight ||
+              (set.weight === currentPR.weight && set.reps > currentPR.reps)
+            ) {
+              currentPR = setData;
+            }
+          });
+
+          // Calculate trend data point
+          if (workingSets.length > 0) {
+            const maxWeight = Math.max(...workingSets.map((s) => s.weight));
+            const totalVolume = workingSets.reduce(
+              (acc, s) => acc + calculateVolume(s.weight, s.reps),
+              0
+            );
+            const totalReps = workingSets.reduce((acc, s) => acc + s.reps, 0);
+
+            trends.push({
+              date: workout.date,
+              maxWeight,
+              totalVolume,
+              totalReps,
+              averageWeight: totalReps > 0 ? totalVolume / totalReps : 0,
+            });
+          }
+        }
+      });
+
+      // Find last 30 days best
+      recentWorkouts.forEach((workout) => {
+        const exercise = workout.exercises.find(
+          (e) => e.name.toLowerCase() === exerciseName.toLowerCase()
+        );
+
+        if (exercise) {
+          const workingSets = exercise.sets.filter((s) => !s.isWarmup);
+          workingSets.forEach((set) => {
+            if (
+              !last30DaysBest ||
+              set.weight > last30DaysBest.weight ||
+              (set.weight === last30DaysBest.weight &&
+                set.reps > last30DaysBest.reps)
+            ) {
+              last30DaysBest = {
                 exerciseName: exercise.name,
                 weight: set.weight,
                 reps: set.reps,
-                volume,
-                date: day.date || `Week ${week.weekNumber} ${day.dayOfWeek}`,
-                weekNumber: week.weekNumber,
+                volume: calculateVolume(set.weight, set.reps),
+                date: workout.date,
               };
-
-              // All-time PR
-              if (
-                !currentPR ||
-                set.weight > currentPR.weight ||
-                (set.weight === currentPR.weight && set.reps > currentPR.reps)
-              ) {
-                currentPR = setData;
-              }
-            });
-
-            // Calculate trend data point
-            if (workingSets.length > 0) {
-              const maxWeight = Math.max(...workingSets.map((s) => s.weight));
-              const totalVolume = workingSets.reduce(
-                (acc, s) => acc + calculateVolume(s.weight, s.reps),
-                0
-              );
-              const totalReps = workingSets.reduce((acc, s) => acc + s.reps, 0);
-
-              trends.push({
-                date: day.date || `Week ${week.weekNumber} ${day.dayOfWeek}`,
-                weekNumber: week.weekNumber,
-                maxWeight,
-                totalVolume,
-                totalReps,
-                averageWeight: totalReps > 0 ? totalVolume / totalReps : 0,
-              });
             }
-          }
-        });
-      });
-
-      // Find last 4 weeks best
-      recentWeeks.forEach((week) => {
-        week.days.forEach((day) => {
-          const exercise = day.exercises.find(
-            (e) => e.name.toLowerCase() === exerciseName.toLowerCase()
-          );
-
-          if (exercise) {
-            const workingSets = exercise.sets.filter((s) => !s.isWarmup);
-            workingSets.forEach((set) => {
-              if (
-                !last4WeeksBest ||
-                set.weight > last4WeeksBest.weight ||
-                (set.weight === last4WeeksBest.weight &&
-                  set.reps > last4WeeksBest.reps)
-              ) {
-                last4WeeksBest = {
-                  exerciseName: exercise.name,
-                  weight: set.weight,
-                  reps: set.reps,
-                  volume: calculateVolume(set.weight, set.reps),
-                  date: day.date || `Week ${week.weekNumber} ${day.dayOfWeek}`,
-                  weekNumber: week.weekNumber,
-                };
-              }
-            });
-          }
-        });
+          });
+        }
       });
 
       const stats: ExerciseStats = {
@@ -283,9 +272,8 @@ analyticsRoutes.get(
           reps: 0,
           volume: 0,
           date: "",
-          weekNumber: 0,
         },
-        last30DaysBest: last4WeeksBest,
+        last30DaysBest,
         trend: trends,
         totalSessions,
       };
@@ -312,38 +300,28 @@ analyticsRoutes.get(
     try {
       const user = c.get("user");
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const workoutData = await fetchWorkoutLogData(
+      const workouts = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
       );
 
-      const volumeHistory: VolumeHistory[] = [];
+      const volumeHistory: VolumeHistory[] = workouts.map((workout) => {
+        let totalVolume = 0;
 
-      workoutData.forEach((week) => {
-        week.days.forEach((day) => {
-          let dayVolume = 0;
-          let exerciseCount = 0;
-
-          day.exercises.forEach((exercise) => {
-            exerciseCount++;
-            const workingSets = exercise.sets.filter((s) => !s.isWarmup);
-            dayVolume += workingSets.reduce(
-              (acc, s) => acc + calculateVolume(s.weight, s.reps),
-              0
-            );
-          });
-
-          if (exerciseCount > 0) {
-            volumeHistory.push({
-              date: day.date || `Week ${week.weekNumber} ${day.dayOfWeek}`,
-              weekNumber: week.weekNumber,
-              dayOfWeek: day.dayOfWeek,
-              totalVolume: dayVolume,
-              exerciseCount,
-            });
-          }
+        workout.exercises.forEach((exercise) => {
+          const workingSets = exercise.sets.filter((s) => !s.isWarmup);
+          totalVolume += workingSets.reduce(
+            (acc, s) => acc + calculateVolume(s.weight, s.reps),
+            0
+          );
         });
+
+        return {
+          date: workout.date,
+          totalVolume,
+          exerciseCount: workout.exercises.length,
+        };
       });
 
       return c.json({
@@ -368,37 +346,33 @@ analyticsRoutes.get(
     try {
       const user = c.get("user");
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const workoutData = await fetchWorkoutLogData(
+      const workouts = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
       );
 
       const exerciseSet = new Set<string>();
-      let totalSessions = 0;
       let totalSets = 0;
       let totalVolume = 0;
 
-      workoutData.forEach((week) => {
-        week.days.forEach((day) => {
-          totalSessions++;
-          day.exercises.forEach((exercise) => {
-            exerciseSet.add(exercise.name);
-            const workingSets = exercise.sets.filter((s) => !s.isWarmup);
-            totalSets += workingSets.length;
-            totalVolume += workingSets.reduce(
-              (acc, s) => acc + calculateVolume(s.weight, s.reps),
-              0
-            );
-          });
+      workouts.forEach((workout) => {
+        workout.exercises.forEach((exercise) => {
+          exerciseSet.add(exercise.name);
+          const workingSets = exercise.sets.filter((s) => !s.isWarmup);
+          totalSets += workingSets.length;
+          totalVolume += workingSets.reduce(
+            (acc, s) => acc + calculateVolume(s.weight, s.reps),
+            0
+          );
         });
       });
 
       return c.json({
         success: true,
         data: {
-          totalWeeks: workoutData.length,
-          totalSessions,
+          totalWorkouts: workouts.length,
+          totalSessions: workouts.length,
           totalSets,
           totalVolume,
           uniqueExercises: exerciseSet.size,

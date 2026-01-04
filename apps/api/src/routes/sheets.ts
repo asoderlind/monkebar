@@ -80,17 +80,19 @@ sheetsRoutes.get("/sync", zValidator("query", syncSchema), async (c) => {
       })
       .returning();
 
-    const weeks = await fetchWorkoutLogData(user.id, spreadsheetId, sheetName);
+    const workouts = await fetchWorkoutLogData(
+      user.id,
+      spreadsheetId,
+      sheetName
+    );
 
     // Update sync log
     await db
       .update(syncLogs)
       .set({
         status: "success",
-        rowsProcessed: weeks.reduce(
-          (acc, week) =>
-            acc +
-            week.days.reduce((dayAcc, day) => dayAcc + day.exercises.length, 0),
+        rowsProcessed: workouts.reduce(
+          (acc, workout) => acc + workout.exercises.length,
           0
         ),
         completedAt: new Date(),
@@ -100,7 +102,7 @@ sheetsRoutes.get("/sync", zValidator("query", syncSchema), async (c) => {
     return c.json({
       success: true,
       data: {
-        weeks,
+        workouts,
         syncedAt: new Date().toISOString(),
       },
     });
@@ -320,7 +322,7 @@ sheetsRoutes.get(
       const user = c.get("user");
       const { spreadsheetId, sheetName } = c.req.valid("query");
 
-      const weeks = await fetchWorkoutLogData(
+      const workouts = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
@@ -329,7 +331,7 @@ sheetsRoutes.get(
       return c.json({
         success: true,
         data: {
-          weeks,
+          workouts,
           syncedAt: new Date().toISOString(),
         },
       });

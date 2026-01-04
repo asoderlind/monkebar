@@ -3,7 +3,7 @@ import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { fetchWorkoutLogData } from "../lib/sheets.js";
 import { requireAuth, type AuthContext } from "../lib/middleware.js";
-import type { DayOfWeek } from "@monke-bar/shared";
+import { getDayOfWeek, getWeekNumber, getYear } from "@monke-bar/shared";
 
 export const workoutsRoutes = new Hono<{ Variables: AuthContext }>();
 
@@ -17,17 +17,21 @@ const sheetParamsSchema = z.object({
 
 /**
  * GET /api/workouts
- * Get all workouts from Google Sheets (normalized format)
+ * Get all workouts from Google Sheets
  */
 workoutsRoutes.get("/", zValidator("query", sheetParamsSchema), async (c) => {
   try {
     const user = c.get("user");
     const { spreadsheetId, sheetName } = c.req.valid("query");
-    const weeks = await fetchWorkoutLogData(user.id, spreadsheetId, sheetName);
+    const workouts = await fetchWorkoutLogData(
+      user.id,
+      spreadsheetId,
+      sheetName
+    );
 
     return c.json({
       success: true,
-      data: weeks,
+      data: workouts,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -36,42 +40,8 @@ workoutsRoutes.get("/", zValidator("query", sheetParamsSchema), async (c) => {
 });
 
 /**
- * GET /api/workouts/week/:weekNumber
- * Get a specific week's workouts
- */
-workoutsRoutes.get(
-  "/week/:weekNumber",
-  zValidator("query", sheetParamsSchema),
-  async (c) => {
-    try {
-      const user = c.get("user");
-      const weekNumber = parseInt(c.req.param("weekNumber"), 10);
-      const { spreadsheetId, sheetName } = c.req.valid("query");
-      const weeks = await fetchWorkoutLogData(
-        user.id,
-        spreadsheetId,
-        sheetName
-      );
-      const week = weeks.find((w) => w.weekNumber === weekNumber);
-
-      if (!week) {
-        return c.json({ success: false, error: "Week not found" }, 404);
-      }
-
-      return c.json({
-        success: true,
-        data: week,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return c.json({ success: false, error: message }, 500);
-    }
-  }
-);
-
-/**
  * GET /api/workouts/latest
- * Get the most recent week's workouts
+ * Get the most recent workout
  */
 workoutsRoutes.get(
   "/latest",
@@ -80,16 +50,17 @@ workoutsRoutes.get(
     try {
       const user = c.get("user");
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const weeks = await fetchWorkoutLogData(
+      const workouts = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
       );
-      const latestWeek = weeks.length > 0 ? weeks[weeks.length - 1] : null;
+      const latestWorkout =
+        workouts.length > 0 ? workouts[workouts.length - 1] : null;
 
       return c.json({
         success: true,
-        data: latestWeek,
+        data: latestWorkout,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -99,33 +70,31 @@ workoutsRoutes.get(
 );
 
 /**
- * GET /api/workouts/day/:dayOfWeek
- * Get workouts for a specific day across all weeks
+ * GET /api/workouts/date/:date
+ * Get workout for a specific date (YYYY-MM-DD)
  */
 workoutsRoutes.get(
-  "/day/:dayOfWeek",
+  "/date/:date",
   zValidator("query", sheetParamsSchema),
   async (c) => {
     try {
       const user = c.get("user");
-      const dayOfWeek = c.req.param("dayOfWeek") as DayOfWeek;
+      const date = c.req.param("date");
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const weeks = await fetchWorkoutLogData(
+      const workouts = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
       );
+      const workout = workouts.find((w) => w.date === date);
 
-      const dayWorkouts = weeks
-        .map((week) => ({
-          weekNumber: week.weekNumber,
-          day: week.days.find((d) => d.dayOfWeek === dayOfWeek),
-        }))
-        .filter((w) => w.day !== undefined);
+      if (!workout) {
+        return c.json({ success: false, error: "Workout not found" }, 404);
+      }
 
       return c.json({
         success: true,
-        data: dayWorkouts,
+        data: workout,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Unknown error";
@@ -145,18 +114,16 @@ workoutsRoutes.get(
     try {
       const user = c.get("user");
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const weeks = await fetchWorkoutLogData(
+      const workouts = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
       );
       const exerciseSet = new Set<string>();
 
-      weeks.forEach((week) => {
-        week.days.forEach((day) => {
-          day.exercises.forEach((exercise) => {
-            exerciseSet.add(exercise.name);
-          });
+      workouts.forEach((workout) => {
+        workout.exercises.forEach((exercise) => {
+          exerciseSet.add(exercise.name);
         });
       });
 
@@ -183,41 +150,25 @@ workoutsRoutes.get(
       const user = c.get("user");
       const exerciseName = decodeURIComponent(c.req.param("name"));
       const { spreadsheetId, sheetName } = c.req.valid("query");
-      const weeks = await fetchWorkoutLogData(
+      const workouts = await fetchWorkoutLogData(
         user.id,
         spreadsheetId,
         sheetName
       );
 
-      const exerciseHistory: Array<{
-        weekNumber: number;
-        year: number;
-        date?: string;
-        dayOfWeek: DayOfWeek;
-        sets: Array<{
-          weight: number;
-          reps: number;
-          isWarmup: boolean;
-          setNumber: number;
-        }>;
-      }> = [];
-
-      weeks.forEach((week) => {
-        week.days.forEach((day) => {
-          const exercise = day.exercises.find(
+      const exerciseHistory = workouts
+        .map((workout) => {
+          const exercise = workout.exercises.find(
             (e) => e.name.toLowerCase() === exerciseName.toLowerCase()
           );
-          if (exercise) {
-            exerciseHistory.push({
-              weekNumber: week.weekNumber,
-              year: week.year,
-              date: day.date,
-              dayOfWeek: day.dayOfWeek,
-              sets: exercise.sets,
-            });
-          }
-        });
-      });
+          if (!exercise) return null;
+
+          return {
+            date: workout.date,
+            sets: exercise.sets,
+          };
+        })
+        .filter((item) => item !== null);
 
       return c.json({
         success: true,

@@ -1,6 +1,6 @@
 import { google } from "googleapis";
 import type {
-  WorkoutWeek,
+  Workout,
   Exercise,
   WorkoutSet,
   DayOfWeek,
@@ -113,229 +113,6 @@ async function getSheetsClient(userId: string) {
 
   const sheets = google.sheets({ version: "v4", auth: oauth2Client });
   return sheets;
-}
-
-/**
- * Day column mappings based on the spreadsheet structure
- */
-const DAY_COLUMNS: Array<{
-  day: DayOfWeek;
-  exerciseCol: number;
-  warmupCol: number;
-  set1Col: number;
-  set2Col: number;
-  set3Col: number;
-  set4Col: number;
-}> = [
-  {
-    day: "Monday",
-    exerciseCol: 1,
-    warmupCol: 2,
-    set1Col: 3,
-    set2Col: 4,
-    set3Col: 5,
-    set4Col: 6,
-  },
-  {
-    day: "Tuesday",
-    exerciseCol: 7,
-    warmupCol: 8,
-    set1Col: 9,
-    set2Col: 10,
-    set3Col: 11,
-    set4Col: 12,
-  },
-  {
-    day: "Wednesday",
-    exerciseCol: 13,
-    warmupCol: 14,
-    set1Col: 15,
-    set2Col: 16,
-    set3Col: 17,
-    set4Col: 18,
-  },
-  {
-    day: "Thursday",
-    exerciseCol: 19,
-    warmupCol: 20,
-    set1Col: 21,
-    set2Col: 22,
-    set3Col: 23,
-    set4Col: 24,
-  },
-  {
-    day: "Friday",
-    exerciseCol: 25,
-    warmupCol: 26,
-    set1Col: 27,
-    set2Col: 28,
-    set3Col: 29,
-    set4Col: 30,
-  },
-  {
-    day: "Saturday",
-    exerciseCol: 31,
-    warmupCol: 32,
-    set1Col: 33,
-    set2Col: 34,
-    set3Col: 35,
-    set4Col: 36,
-  },
-  {
-    day: "Sunday",
-    exerciseCol: 37,
-    warmupCol: 38,
-    set1Col: 39,
-    set2Col: 40,
-    set3Col: 41,
-    set4Col: 42,
-  },
-];
-
-/**
- * Parse exercises from rows for a specific day
- */
-function parseExercisesFromRows(
-  rows: (string | null | undefined)[][],
-  dayConfig: (typeof DAY_COLUMNS)[0],
-  startRowIndex: number
-): Exercise[] {
-  const exercises: Exercise[] = [];
-
-  for (let i = 0; i < rows.length; i++) {
-    const row = rows[i];
-    const exerciseName = row[dayConfig.exerciseCol]?.toString().trim();
-
-    if (!exerciseName) continue;
-
-    const sets: WorkoutSet[] = [];
-
-    // Warmup set
-    const warmupValue = parseSetValue(row[dayConfig.warmupCol]?.toString());
-    if (warmupValue) {
-      sets.push({
-        weight: warmupValue.weight,
-        reps: warmupValue.reps,
-        isWarmup: true,
-        setNumber: 0,
-      });
-    }
-
-    // Working sets 1-4
-    const setCols = [
-      dayConfig.set1Col,
-      dayConfig.set2Col,
-      dayConfig.set3Col,
-      dayConfig.set4Col,
-    ];
-    setCols.forEach((col, idx) => {
-      const setValue = parseSetValue(row[col]?.toString());
-      if (setValue) {
-        sets.push({
-          weight: setValue.weight,
-          reps: setValue.reps,
-          isWarmup: false,
-          setNumber: idx + 1,
-        });
-      }
-    });
-
-    if (sets.length > 0) {
-      exercises.push({
-        id: `${startRowIndex + i}-${dayConfig.day}-${exerciseName}`,
-        name: exerciseName,
-        sets,
-      });
-    }
-  }
-
-  return exercises;
-}
-
-/**
- * Fetch all workout data from Google Sheets
- */
-export async function fetchWorkoutData(
-  userId: string,
-  spreadsheetId: string,
-  sheetName: string = "Sheet1"
-): Promise<WorkoutWeek[]> {
-  const sheets = await getSheetsClient(userId);
-
-  // Fetch all data from the sheet
-  const response = await sheets.spreadsheets.values.get({
-    spreadsheetId,
-    range: `${sheetName}!A:AQ`, // Covers Week column through Sunday
-  });
-
-  const rows = response.data.values || [];
-  if (rows.length < 3) {
-    return []; // Need at least header rows + data
-  }
-
-  const weeks: WorkoutWeek[] = [];
-  let currentWeek: WorkoutWeek | null = null;
-  let currentWeekRows: (string | null | undefined)[][] = [];
-  let currentWeekStartRow = 3; // Data starts after headers (row 3 in 1-indexed)
-
-  // Skip header rows (row 1 = day headers, row 2 = column headers)
-  for (let i = 2; i < rows.length; i++) {
-    const row = rows[i];
-    const weekCell = row[0]?.toString().trim();
-
-    // Check if this is a new week indicator
-    if (weekCell && /^\d+$/.test(weekCell)) {
-      // Save previous week if exists
-      if (currentWeek && currentWeekRows.length > 0) {
-        // Parse exercises for each day
-        for (const dayConfig of DAY_COLUMNS) {
-          const exercises = parseExercisesFromRows(
-            currentWeekRows,
-            dayConfig,
-            currentWeekStartRow
-          );
-          if (exercises.length > 0) {
-            currentWeek.days.push({
-              dayOfWeek: dayConfig.day,
-              exercises,
-            });
-          }
-        }
-        weeks.push(currentWeek);
-      }
-
-      // Start new week
-      currentWeek = {
-        weekNumber: parseInt(weekCell, 10),
-        days: [],
-      };
-      currentWeekRows = [row];
-      currentWeekStartRow = i;
-    } else if (currentWeek) {
-      // Continue current week
-      currentWeekRows.push(row);
-    }
-  }
-
-  // Don't forget the last week
-  if (currentWeek && currentWeekRows.length > 0) {
-    for (const dayConfig of DAY_COLUMNS) {
-      const exercises = parseExercisesFromRows(
-        currentWeekRows,
-        dayConfig,
-        currentWeekStartRow
-      );
-      if (exercises.length > 0) {
-        currentWeek.days.push({
-          dayOfWeek: dayConfig.day,
-          exercises,
-        });
-      }
-    }
-    weeks.push(currentWeek);
-  }
-
-  return weeks;
 }
 
 /**
@@ -593,31 +370,15 @@ export async function appendWorkoutEntries(
 }
 
 /**
- * Get week number and year from a date string (YYYY-MM-DD)
- */
-function getWeekAndYearFromDate(dateStr: string): {
-  week: number;
-  year: number;
-} {
-  const date = new Date(dateStr);
-  const year = date.getFullYear();
-  const startOfYear = new Date(year, 0, 1);
-  const days = Math.floor(
-    (date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000)
-  );
-  const week = Math.ceil((days + startOfYear.getDay() + 1) / 7);
-  return { week, year };
-}
-
-/**
  * Fetch workout log data (normalized format)
  * Sheet format: Date | Day | Exercise | Warmup | Set1 | Set2 | Set3 | Set4
+ * Returns flat array of Workout objects, one per date, sorted by date ascending
  */
 export async function fetchWorkoutLogData(
   userId: string,
   spreadsheetId: string,
   sheetName: string = "Workout Log"
-): Promise<WorkoutWeek[]> {
+): Promise<Workout[]> {
   const sheets = await getSheetsClient(userId);
 
   const response = await sheets.spreadsheets.values.get({
@@ -630,32 +391,19 @@ export async function fetchWorkoutLogData(
     return []; // Need header + data
   }
 
-  // Group by year-week (calculated from date)
-  const weekMap = new Map<
-    string,
-    { year: number; week: number; dayMap: Map<DayOfWeek, Exercise[]> }
-  >();
+  // Group exercises by date
+  const workoutMap = new Map<string, Exercise[]>();
 
   // Skip header row
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
     const dateStr = row[0]?.toString();
-    const day = row[1]?.toString() as DayOfWeek;
     const exerciseName = row[2]?.toString();
 
-    if (!dateStr || !day || !exerciseName) continue;
+    if (!dateStr || !exerciseName) continue;
 
-    // Calculate week and year from date
-    const { week, year } = getWeekAndYearFromDate(dateStr);
-    const key = `${year}-${week}`;
-
-    if (!weekMap.has(key)) {
-      weekMap.set(key, { year, week, dayMap: new Map() });
-    }
-    const { dayMap } = weekMap.get(key)!;
-
-    if (!dayMap.has(day)) {
-      dayMap.set(day, []);
+    if (!workoutMap.has(dateStr)) {
+      workoutMap.set(dateStr, []);
     }
 
     const sets: WorkoutSet[] = [];
@@ -674,23 +422,17 @@ export async function fetchWorkoutLogData(
       }
     }
 
-    dayMap.get(day)!.push({
-      id: `${i}-${day}-${exerciseName}`,
+    workoutMap.get(dateStr)!.push({
+      id: `${i}-${dateStr}-${exerciseName}`,
       name: exerciseName,
       sets,
     });
   }
 
-  // Convert to WorkoutWeek array
-  const weeks: WorkoutWeek[] = [];
-  for (const [, { year, week, dayMap }] of weekMap.entries()) {
-    const days = Array.from(dayMap.entries()).map(([dayOfWeek, exercises]) => ({
-      dayOfWeek,
-      exercises,
-    }));
-    weeks.push({ weekNumber: week, year, days });
-  }
+  // Convert to Workout array sorted by date
+  const workouts: Workout[] = Array.from(workoutMap.entries())
+    .map(([date, exercises]) => ({ date, exercises }))
+    .sort((a, b) => a.date.localeCompare(b.date));
 
-  // Sort by year first, then by week number
-  return weeks.sort((a, b) => a.year - b.year || a.weekNumber - b.weekNumber);
+  return workouts;
 }

@@ -1,20 +1,13 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useWorkoutLogData, useWorkoutLogSync } from "@/hooks/useWorkouts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
-import type { DayOfWeek } from "@monke-bar/shared";
-import { getMuscleGroup, MUSCLE_GROUP_COLORS } from "@monke-bar/shared";
-
-const DAYS: DayOfWeek[] = [
-  "Monday",
-  "Tuesday",
-  "Wednesday",
-  "Thursday",
-  "Friday",
-  "Saturday",
-  "Sunday",
-];
+import {
+  getMuscleGroup,
+  MUSCLE_GROUP_COLORS,
+  getDayOfWeek,
+} from "@monke-bar/shared";
 
 interface WorkoutViewProps {
   spreadsheetId: string;
@@ -29,19 +22,22 @@ export function WorkoutView({ spreadsheetId, sheetName }: WorkoutViewProps) {
   } = useWorkoutLogData(spreadsheetId, sheetName);
   const syncMutation = useWorkoutLogSync(spreadsheetId, sheetName);
 
-  const weeks = logData?.weeks;
+  const workouts = logData?.workouts;
 
-  const [selectedDayIndex, setSelectedDayIndex] = useState(() => {
-    // Default to today's day of week
-    const today = new Date().getDay();
-    // Convert Sunday = 0 to Sunday = 6
-    return today === 0 ? 6 : today - 1;
-  });
+  // Get sorted workout dates
+  const sortedDates = useMemo(() => {
+    if (!workouts) return [];
+    return [...workouts].map((w) => w.date).sort((a, b) => a.localeCompare(b));
+  }, [workouts]);
 
-  // Track which week to show (null = latest)
-  const [selectedWeekIndex, setSelectedWeekIndex] = useState<number | null>(
-    null
+  // Current date index (latest by default)
+  const [selectedDateIndex, setSelectedDateIndex] = useState<number>(
+    () => sortedDates.length - 1
   );
+
+  // Get current workout
+  const currentDate = sortedDates[selectedDateIndex];
+  const currentWorkout = workouts?.find((w) => w.date === currentDate);
 
   if (isLoading) {
     return (
@@ -81,7 +77,7 @@ export function WorkoutView({ spreadsheetId, sheetName }: WorkoutViewProps) {
     );
   }
 
-  if (!weeks || weeks.length === 0) {
+  if (!workouts || workouts.length === 0) {
     return (
       <div className="p-4">
         <Card>
@@ -108,95 +104,52 @@ export function WorkoutView({ spreadsheetId, sheetName }: WorkoutViewProps) {
     );
   }
 
-  // Sort weeks by week number and get the selected or latest week
-  const sortedWeeks = [...weeks].sort((a, b) => a.weekNumber - b.weekNumber);
-  const weekIndex = selectedWeekIndex ?? sortedWeeks.length - 1;
-  const currentWeek = sortedWeeks[weekIndex];
-
-  const selectedDay = DAYS[selectedDayIndex];
-  const dayWorkout = currentWeek?.days.find((d) => d.dayOfWeek === selectedDay);
-
-  const goToPrevDay = () => {
-    setSelectedDayIndex((prev) => (prev - 1 + 7) % 7);
-  };
-
-  const goToNextDay = () => {
-    setSelectedDayIndex((prev) => (prev + 1) % 7);
-  };
-
-  const goToPrevWeek = () => {
-    if (weekIndex > 0) {
-      setSelectedWeekIndex(weekIndex - 1);
+  const goToPrevWorkout = () => {
+    if (selectedDateIndex > 0) {
+      setSelectedDateIndex(selectedDateIndex - 1);
     }
   };
 
-  const goToNextWeek = () => {
-    if (weekIndex < sortedWeeks.length - 1) {
-      setSelectedWeekIndex(weekIndex + 1);
+  const goToNextWorkout = () => {
+    if (selectedDateIndex < sortedDates.length - 1) {
+      setSelectedDateIndex(selectedDateIndex + 1);
     }
   };
+
+  const dayOfWeek = currentDate ? getDayOfWeek(currentDate) : "";
 
   return (
     <div className="p-4 space-y-4">
-      {/* Week selector */}
-      <div className="flex items-center justify-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={goToPrevWeek}
-          disabled={weekIndex === 0}
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <h2 className="text-lg font-semibold min-w-[100px] text-center">
-          Week {currentWeek?.weekNumber}
-        </h2>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={goToNextWeek}
-          disabled={weekIndex >= sortedWeeks.length - 1}
-        >
-          <ChevronRight className="h-4 w-4" />
-        </Button>
-      </div>
-
-      {/* Day selector */}
+      {/* Date navigation */}
       <div className="flex items-center justify-between">
-        <Button variant="ghost" size="icon" onClick={goToPrevDay}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={goToPrevWorkout}
+          disabled={selectedDateIndex === 0}
+        >
           <ChevronLeft className="h-5 w-5" />
         </Button>
 
-        <h3 className="text-xl font-bold">{selectedDay}</h3>
+        <div className="text-center">
+          <h3 className="text-xl font-bold">{dayOfWeek}</h3>
+          <p className="text-sm text-muted-foreground">{currentDate}</p>
+        </div>
 
-        <Button variant="ghost" size="icon" onClick={goToNextDay}>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={goToNextWorkout}
+          disabled={selectedDateIndex >= sortedDates.length - 1}
+        >
           <ChevronRight className="h-5 w-5" />
         </Button>
       </div>
 
-      {/* Day pills */}
-      <div className="flex gap-1 justify-center">
-        {DAYS.map((day, idx) => (
-          <button
-            key={day}
-            onClick={() => setSelectedDayIndex(idx)}
-            className={`w-8 h-8 rounded-full text-xs font-medium transition-colors ${
-              idx === selectedDayIndex
-                ? "bg-primary text-primary-foreground"
-                : currentWeek?.days.some((d) => d.dayOfWeek === day)
-                ? "bg-secondary text-secondary-foreground"
-                : "bg-muted text-muted-foreground"
-            }`}
-          >
-            {day.charAt(0)}
-          </button>
-        ))}
-      </div>
-
       {/* Exercises */}
-      {dayWorkout ? (
+      {currentWorkout && currentWorkout.exercises.length > 0 ? (
         <div className="space-y-3">
-          {dayWorkout.exercises.map((exercise, idx) => {
+          {currentWorkout.exercises.map((exercise, idx) => {
             const muscleGroup = getMuscleGroup(exercise.name);
             const colorClass = muscleGroup
               ? MUSCLE_GROUP_COLORS[muscleGroup]
@@ -257,7 +210,7 @@ export function WorkoutView({ spreadsheetId, sheetName }: WorkoutViewProps) {
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">Rest day 😴</p>
             <p className="text-xs text-muted-foreground mt-1">
-              No exercises logged for {selectedDay}
+              No exercises logged for {currentDate}
             </p>
           </CardContent>
         </Card>

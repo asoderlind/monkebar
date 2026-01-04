@@ -79,14 +79,9 @@ function ExerciseHistoryPreview({
   if (!exerciseName || isLoading) return null;
   if (!data?.history || data.history.length === 0) return null;
 
-  // Get last 2 sessions (sorted by year/week, most recent first)
+  // Get last 2 sessions (sorted by date, most recent first)
   const lastSessions = [...data.history]
-    .sort((a, b) => {
-      const yearA = a.year || 0;
-      const yearB = b.year || 0;
-      if (yearB !== yearA) return yearB - yearA;
-      return b.weekNumber - a.weekNumber;
-    })
+    .sort((a, b) => b.date.localeCompare(a.date))
     .slice(0, 2);
 
   if (lastSessions.length === 0) return null;
@@ -103,12 +98,13 @@ function ExerciseHistoryPreview({
         {lastSessions.map((session, idx) => {
           const workingSets = session.sets.filter((s) => !s.isWarmup);
           const warmupSet = session.sets.find((s) => s.isWarmup);
-          const dateStr = session.date
-            ? new Date(session.date).toLocaleDateString("en-US", {
-                month: "short",
-                day: "numeric",
-              })
-            : `W${session.weekNumber}`;
+          const dateStr = new Date(session.date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+          });
+          const dayOfWeek = new Date(session.date).toLocaleDateString("en-US", {
+            weekday: "short",
+          });
 
           return (
             <div
@@ -116,7 +112,7 @@ function ExerciseHistoryPreview({
               className="flex items-center justify-between text-xs"
             >
               <span className="text-muted-foreground min-w-[70px]">
-                {dateStr} ({session.dayOfWeek.slice(0, 3)})
+                {dateStr} ({dayOfWeek})
               </span>
               <div className="flex items-center gap-1 flex-wrap justify-end">
                 {warmupSet && (

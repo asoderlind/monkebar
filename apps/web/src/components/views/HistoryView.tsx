@@ -1,20 +1,52 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useWorkouts, useExerciseList } from "@/hooks/useWorkouts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
+import { getWeekNumber, getYear, getDayOfWeek, type Workout } from "@monke-bar/shared";
 
 interface HistoryViewProps {
   spreadsheetId: string;
   sheetName: string;
 }
 
+interface GroupedWeek {
+  year: number;
+  weekNumber: number;
+  workouts: Workout[];
+}
+
 export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
-  const { data: weeks, isLoading } = useWorkouts(spreadsheetId, sheetName);
+  const { data: workouts, isLoading } = useWorkouts(spreadsheetId, sheetName);
   const { data: exercises } = useExerciseList(spreadsheetId, sheetName);
   const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
   const [filterExercise, setFilterExercise] = useState<string>("");
   const [searchOpen, setSearchOpen] = useState(false);
+
+  // Group workouts by week
+  const groupedWeeks = useMemo((): GroupedWeek[] => {
+    if (!workouts) return [];
+
+    const weekMap = new Map<string, Workout[]>();
+
+    workouts.forEach((workout) => {
+      const year = getYear(workout.date);
+      const weekNumber = getWeekNumber(workout.date);
+      const key = `${year}-${weekNumber}`;
+
+      if (!weekMap.has(key)) {
+        weekMap.set(key, []);
+      }
+      weekMap.get(key)!.push(workout);
+    });
+
+    return Array.from(weekMap.entries())
+      .map(([key, workouts]) => {
+        const [year, weekNumber] = key.split("-").map(Number);
+        return { year, weekNumber, workouts };
+      })
+      .sort((a, b) => a.year - b.year || a.weekNumber - b.weekNumber);
+  }, [workouts]);
 
   if (isLoading) {
     return (
@@ -26,7 +58,7 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
     );
   }
 
-  if (!weeks || weeks.length === 0) {
+  if (!workouts || workouts.length === 0) {
     return (
       <div className="p-4">
         <Card>
@@ -38,25 +70,22 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
     );
   }
 
-  // Sort by year and week number (oldest first)
-  const sortedWeeks = [...weeks].sort(
-    (a, b) => a.year - b.year || a.weekNumber - b.weekNumber
-  );
-
   // Filter by exercise if selected
   const filteredWeeks = filterExercise
-    ? sortedWeeks.map((week) => ({
-        ...week,
-        days: week.days
-          .map((day) => ({
-            ...day,
-            exercises: day.exercises.filter((e) =>
-              e.name.toLowerCase().includes(filterExercise.toLowerCase())
-            ),
-          }))
-          .filter((day) => day.exercises.length > 0),
-      }))
-    : sortedWeeks;
+    ? groupedWeeks
+        .map((week) => ({
+          ...week,
+          workouts: week.workouts
+            .map((workout) => ({
+              ...workout,
+              exercises: workout.exercises.filter((e) =>
+                e.name.toLowerCase().includes(filterExercise.toLowerCase())
+              ),
+            }))
+            .filter((workout) => workout.exercises.length > 0),
+        }))
+        .filter((week) => week.workouts.length > 0)
+    : groupedWeeks;
 
   const toggleWeek = (weekNumber: number) => {
     setExpandedWeek(expandedWeek === weekNumber ? null : weekNumber);
@@ -128,7 +157,7 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
                   </span>
                   <div className="flex items-center gap-2 ml-auto">
                     <span className="text-xs text-muted-foreground">
-                      {week.days.length} days
+                      {week.workouts.length} days
                     </span>
                     {expandedWeek === week.year * 100 + week.weekNumber ? (
                       <ChevronUp className="h-4 w-4" />
@@ -143,13 +172,13 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
             {expandedWeek === week.year * 100 + week.weekNumber && (
               <CardContent className="pt-0">
                 <div className="space-y-4">
-                  {week.days.map((day) => (
-                    <div key={day.dayOfWeek} className="space-y-2">
+                  {week.workouts.map((workout) => (
+                    <div key={workout.date} className="space-y-2">
                       <h4 className="text-sm font-semibold text-primary">
-                        {day.dayOfWeek}
+                        {getDayOfWeek(workout.date)} ({workout.date})
                       </h4>
                       <div className="space-y-2">
-                        {day.exercises.map((exercise, idx) => (
+                        {workout.exercises.map((exercise, idx) => (
                           <div
                             key={idx}
                             className="p-2 rounded-lg bg-secondary/30"
@@ -183,7 +212,7 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
         ))}
       </div>
 
-      {filteredWeeks.every((w) => w.days.length === 0) && filterExercise && (
+      {filteredWeeks.length === 0 && filterExercise && (
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">

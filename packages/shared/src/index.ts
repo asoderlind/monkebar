@@ -1,6 +1,78 @@
 // Shared types for the workout tracker app
 
 // ============================================================================
+// Basic Types
+// ============================================================================
+
+/**
+ * Day of the week for workouts
+ */
+export type DayOfWeek =
+  | "Monday"
+  | "Tuesday"
+  | "Wednesday"
+  | "Thursday"
+  | "Friday"
+  | "Saturday"
+  | "Sunday";
+
+// ============================================================================
+// Date Utility Functions
+// ============================================================================
+
+const DAYS_OF_WEEK_ARRAY: DayOfWeek[] = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
+
+/**
+ * Get the day of week from a date string (YYYY-MM-DD) or Date object
+ */
+export function getDayOfWeek(date: string | Date): DayOfWeek {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return DAYS_OF_WEEK_ARRAY[d.getDay()];
+}
+
+/**
+ * Get the ISO week number from a date string (YYYY-MM-DD) or Date object
+ */
+export function getWeekNumber(date: string | Date): number {
+  const d = typeof date === "string" ? new Date(date) : date;
+  const startOfYear = new Date(d.getFullYear(), 0, 1);
+  const days = Math.floor(
+    (d.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000)
+  );
+  return Math.ceil((days + startOfYear.getDay() + 1) / 7);
+}
+
+/**
+ * Get the year from a date string (YYYY-MM-DD) or Date object
+ */
+export function getYear(date: string | Date): number {
+  const d = typeof date === "string" ? new Date(date) : date;
+  return d.getFullYear();
+}
+
+/**
+ * Format a date as YYYY-MM-DD
+ */
+export function formatDate(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
+/**
+ * Parse a date string to Date object (handles YYYY-MM-DD)
+ */
+export function parseDate(dateStr: string): Date {
+  return new Date(dateStr);
+}
+
+// ============================================================================
 // Core Data Types - Matching Google Sheets structure
 // ============================================================================
 
@@ -26,36 +98,11 @@ export interface Exercise {
 }
 
 /**
- * Day of the week for workouts
+ * A workout session containing all exercises for a specific date
  */
-export type DayOfWeek =
-  | "Monday"
-  | "Tuesday"
-  | "Wednesday"
-  | "Thursday"
-  | "Friday"
-  | "Saturday"
-  | "Sunday";
-
-/**
- * A workout day containing all exercises for that day
- * Columns in the sheet: Monday (B-G), Tuesday (H-M), etc.
- */
-export interface WorkoutDay {
-  dayOfWeek: DayOfWeek;
+export interface Workout {
+  date: string; // YYYY-MM-DD format
   exercises: Exercise[];
-  date?: string; // ISO date string when known
-}
-
-/**
- * A full week of workouts
- * Rows grouped by "Week" column (A) in the sheet
- */
-export interface WorkoutWeek {
-  weekNumber: number;
-  year: number;
-  startDate?: string; // ISO date string
-  days: WorkoutDay[];
 }
 
 // ============================================================================
@@ -71,7 +118,6 @@ export interface BestSet {
   reps: number;
   volume: number; // weight * reps
   date: string;
-  weekNumber: number;
 }
 
 /**
@@ -79,7 +125,6 @@ export interface BestSet {
  */
 export interface TrendDataPoint {
   date: string;
-  weekNumber: number;
   maxWeight: number;
   totalVolume: number; // sum of (weight * reps) for all sets
   totalReps: number;
@@ -102,8 +147,6 @@ export interface ExerciseStats {
  */
 export interface VolumeHistory {
   date: string;
-  weekNumber: number;
-  dayOfWeek: DayOfWeek;
   totalVolume: number;
   exerciseCount: number;
 }

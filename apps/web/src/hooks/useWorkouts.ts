@@ -35,7 +35,7 @@ export function useWorkouts(
   });
 }
 
-export function useLatestWeek(
+export function useLatestWorkout(
   spreadsheetId: string,
   sheetName: string = "Sheet1"
 ) {
@@ -48,17 +48,17 @@ export function useLatestWeek(
   });
 }
 
-export function useWeek(
-  weekNumber: number,
+export function useWorkoutByDate(
+  date: string,
   spreadsheetId: string,
   sheetName: string = "Sheet1"
 ) {
   const { workouts } = useApiClients(spreadsheetId, sheetName);
 
   return useQuery({
-    queryKey: ["workouts", "week", weekNumber, spreadsheetId, sheetName],
-    queryFn: () => workouts.getWeek(weekNumber),
-    enabled: weekNumber > 0 && !!spreadsheetId,
+    queryKey: ["workouts", "date", date, spreadsheetId, sheetName],
+    queryFn: () => workouts.getByDate(date),
+    enabled: !!date && !!spreadsheetId,
   });
 }
 
@@ -93,13 +93,13 @@ export function useExerciseHistory(
 export function useBestSets(
   spreadsheetId: string,
   sheetName: string = "Sheet1",
-  weeks = 4
+  days = 30
 ) {
   const { analytics } = useApiClients(spreadsheetId, sheetName);
 
   return useQuery({
-    queryKey: ["analytics", "bestSets", weeks, spreadsheetId, sheetName],
-    queryFn: () => analytics.getBestSets(weeks),
+    queryKey: ["analytics", "bestSets", days, spreadsheetId, sheetName],
+    queryFn: () => analytics.getBestSets(days),
     enabled: !!spreadsheetId,
   });
 }

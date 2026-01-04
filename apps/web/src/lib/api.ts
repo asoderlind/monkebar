@@ -1,6 +1,6 @@
 import type {
   ApiResponse,
-  WorkoutWeek,
+  Workout,
   BestSet,
   ExerciseStats,
   VolumeHistory,
@@ -56,19 +56,16 @@ export function createWorkoutsApi(
   const params = buildSheetParams(spreadsheetId, sheetName);
 
   return {
-    getAll: () => fetchApi<WorkoutWeek[]>(`/workouts?${params}`),
-    getWeek: (weekNumber: number) =>
-      fetchApi<WorkoutWeek>(`/workouts/week/${weekNumber}?${params}`),
-    getLatest: () => fetchApi<WorkoutWeek | null>(`/workouts/latest?${params}`),
+    getAll: () => fetchApi<Workout[]>(`/workouts?${params}`),
+    getByDate: (date: string) =>
+      fetchApi<Workout | null>(`/workouts/date/${date}?${params}`),
+    getLatest: () => fetchApi<Workout | null>(`/workouts/latest?${params}`),
     getExercises: () => fetchApi<string[]>(`/workouts/exercises?${params}`),
     getExerciseHistory: (name: string) =>
       fetchApi<{
         exerciseName: string;
         history: Array<{
-          weekNumber: number;
-          year: number;
-          date?: string;
-          dayOfWeek: string;
+          date: string;
           sets: Array<{
             weight: number;
             reps: number;
@@ -87,14 +84,13 @@ export function createAnalyticsApi(
   const params = buildSheetParams(spreadsheetId, sheetName);
 
   return {
-    getBestSets: (weeks = 4) =>
-      fetchApi<BestSet[]>(`/analytics/best-sets?${params}&weeks=${weeks}`),
+    getBestSets: (days = 30) =>
+      fetchApi<BestSet[]>(`/analytics/best-sets?${params}&days=${days}`),
     getExerciseTrends: (name: string) =>
       fetchApi<{
         exerciseName: string;
         trends: Array<{
           date: string;
-          weekNumber: number;
           maxWeight: number;
           totalVolume: number;
           totalReps: number;
@@ -128,7 +124,7 @@ export function createSheetsApi(
   return {
     sync: () =>
       fetchApi<{
-        weeks: WorkoutWeek[];
+        workouts: Workout[];
         syncedAt: string;
       }>(`/sheets/sync?${params}`),
     getStatus: () =>
@@ -185,7 +181,7 @@ export function createWorkoutLogApi(
       }),
     // Sync workout log data
     sync: () =>
-      fetchApi<{ weeks: WorkoutWeek[]; syncedAt: string }>(
+      fetchApi<{ workouts: Workout[]; syncedAt: string }>(
         `/sheets/workout-log/sync?${params}`
       ),
   };
@@ -193,17 +189,15 @@ export function createWorkoutLogApi(
 
 // Legacy API objects (kept for backwards compatibility)
 export const workoutsApi = {
-  getAll: () => fetchApi<WorkoutWeek[]>("/workouts"),
-  getWeek: (weekNumber: number) =>
-    fetchApi<WorkoutWeek>(`/workouts/week/${weekNumber}`),
-  getLatest: () => fetchApi<WorkoutWeek | null>("/workouts/latest"),
+  getAll: () => fetchApi<Workout[]>("/workouts"),
+  getByDate: (date: string) => fetchApi<Workout>(`/workouts/date/${date}`),
+  getLatest: () => fetchApi<Workout | null>("/workouts/latest"),
   getExercises: () => fetchApi<string[]>("/workouts/exercises"),
   getExerciseHistory: (name: string) =>
     fetchApi<{
       exerciseName: string;
       history: Array<{
-        weekNumber: number;
-        dayOfWeek: string;
+        date: string;
         sets: Array<{
           weight: number;
           reps: number;
@@ -215,14 +209,13 @@ export const workoutsApi = {
 };
 
 export const analyticsApi = {
-  getBestSets: (weeks = 4) =>
-    fetchApi<BestSet[]>(`/analytics/best-sets?weeks=${weeks}`),
+  getBestSets: (days = 30) =>
+    fetchApi<BestSet[]>(`/analytics/best-sets?days=${days}`),
   getExerciseTrends: (name: string) =>
     fetchApi<{
       exerciseName: string;
       trends: Array<{
         date: string;
-        weekNumber: number;
         maxWeight: number;
         totalVolume: number;
         totalReps: number;
@@ -237,7 +230,7 @@ export const analyticsApi = {
     fetchApi<VolumeHistory[]>("/analytics/volume-history"),
   getSummary: () =>
     fetchApi<{
-      totalWeeks: number;
+      totalWorkouts: number;
       totalSessions: number;
       totalSets: number;
       totalVolume: number;
@@ -249,7 +242,7 @@ export const analyticsApi = {
 export const sheetsApi = {
   sync: () =>
     fetchApi<{
-      weeks: WorkoutWeek[];
+      workouts: Workout[];
       syncedAt: string;
     }>("/sheets/sync"),
   getStatus: () =>
