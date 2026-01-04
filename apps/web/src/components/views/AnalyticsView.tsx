@@ -5,6 +5,7 @@ import {
   useVolumeHistory,
   useExerciseStats,
 } from "@/hooks/useWorkouts";
+import { getWeekNumber, getYear } from "@monke-bar/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -32,7 +33,7 @@ export function AnalyticsView({
   const { data: bestSets, isLoading: loadingBestSets } = useBestSets(
     spreadsheetId,
     sheetName,
-    4
+    30
   );
   const { data: summary, isLoading: loadingSummary } = useSummary(
     spreadsheetId,
@@ -59,15 +60,20 @@ export function AnalyticsView({
   // Prepare volume chart data - group by week
   const weeklyVolume =
     volumeHistory?.reduce((acc, item) => {
-      const key = `Week ${item.weekNumber}`;
+      const weekNumber = getWeekNumber(item.date);
+      const year = getYear(item.date);
+      const key = `${year}-W${weekNumber}`;
       if (!acc[key]) {
-        acc[key] = { week: key, volume: 0 };
+        acc[key] = { week: `W${weekNumber}`, year, weekNumber, volume: 0 };
       }
       acc[key].volume += item.totalVolume;
       return acc;
-    }, {} as Record<string, { week: string; volume: number }>) || {};
+    }, {} as Record<string, { week: string; year: number; weekNumber: number; volume: number }>) ||
+    {};
 
-  const volumeChartData = Object.values(weeklyVolume).slice(-8);
+  const volumeChartData = Object.values(weeklyVolume)
+    .sort((a, b) => a.year - b.year || a.weekNumber - b.weekNumber)
+    .slice(-8);
 
   return (
     <div className="p-4 space-y-4">
@@ -113,9 +119,9 @@ export function AnalyticsView({
           <CardContent className="pt-4">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <span className="text-xs">📅</span>
-              <span className="text-xs">Weeks Tracked</span>
+              <span className="text-xs">Workouts</span>
             </div>
-            <p className="text-2xl font-bold">{summary?.totalWeeks || 0}</p>
+            <p className="text-2xl font-bold">{summary?.totalWorkouts || 0}</p>
           </CardContent>
         </Card>
       </div>
@@ -134,11 +140,7 @@ export function AnalyticsView({
                     strokeDasharray="3 3"
                     className="stroke-muted"
                   />
-                  <XAxis
-                    dataKey="week"
-                    tick={{ fontSize: 10 }}
-                    tickFormatter={(value) => value.replace("Week ", "W")}
-                  />
+                  <XAxis dataKey="week" tick={{ fontSize: 10 }} />
                   <YAxis
                     tick={{ fontSize: 10 }}
                     tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}

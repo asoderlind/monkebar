@@ -110,3 +110,30 @@ body {
 .pr-glow {
   box-shadow: 0 0 20px hsl(var(--pr) / 0.3);
 }
+
+/* Modal and dropdown fixes */
+.fixed.inset-0.bg-black\/50 {
+  backdrop-filter: blur(2px);
+}
+
+/* Ensure dropdowns and modals have solid backgrounds */
+[class*="bg-card"],
+[class*="bg-background"],
+.bg-card,
+.bg-background {
+  background-color: hsl(var(--card)) !important;
+}
+
+/* Specifically for dropdowns in the app */
+.absolute.bg-card {
+  background-color: hsl(var(--card)) !important;
+  backdrop-filter: none;
+}
+
+/* Dark mode solid backgrounds */
+.dark .bg-card,
+.dark [class*="bg-card"],
+.dark .bg-background,
+.dark [class*="bg-background"] {
+  background-color: hsl(var(--card)) !important;
+}
