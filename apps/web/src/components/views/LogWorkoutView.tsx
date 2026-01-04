@@ -16,7 +16,6 @@ import {
   ChevronDown,
   Check,
   Loader2,
-  History,
   RotateCcw,
 } from "lucide-react";
 import {
@@ -41,15 +40,6 @@ const DAYS: DayOfWeek[] = [
   "Saturday",
   "Sunday",
 ];
-
-// Get week number from date
-function getWeekNumber(date: Date): number {
-  const startOfYear = new Date(date.getFullYear(), 0, 1);
-  const days = Math.floor(
-    (date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000)
-  );
-  return Math.ceil((days + startOfYear.getDay() + 1) / 7);
-}
 
 // Format date as YYYY-MM-DD
 function formatDate(date: Date): string {
@@ -145,86 +135,6 @@ function SetInputModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
-}
-
-// Component to show last 2 sessions for an exercise
-function ExerciseHistoryPreview({
-  exerciseName,
-  spreadsheetId,
-  sheetName,
-}: {
-  exerciseName: string;
-  spreadsheetId: string;
-  sheetName: string;
-}) {
-  const { data, isLoading } = useExerciseHistory(
-    exerciseName,
-    spreadsheetId,
-    sheetName
-  );
-
-  if (!exerciseName || isLoading) return null;
-  if (!data?.history || data.history.length === 0) return null;
-
-  // Get last 2 sessions (sorted by date, most recent first)
-  const lastSessions = [...data.history]
-    .sort((a, b) => b.date.localeCompare(a.date))
-    .slice(0, 2);
-
-  if (lastSessions.length === 0) return null;
-
-  return (
-    <div className="mx-4 mb-3 p-3 bg-secondary/50 rounded-lg border border-border/50">
-      <div className="flex items-center gap-2 mb-2">
-        <History className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium text-muted-foreground uppercase">
-          Previous Sessions
-        </span>
-      </div>
-      <div className="space-y-2">
-        {lastSessions.map((session, idx) => {
-          const workingSets = session.sets.filter((s) => !s.isWarmup);
-          const warmupSet = session.sets.find((s) => s.isWarmup);
-          const dateStr = new Date(session.date).toLocaleDateString("en-US", {
-            month: "short",
-            day: "numeric",
-          });
-          const dayOfWeek = new Date(session.date).toLocaleDateString("en-US", {
-            weekday: "short",
-          });
-
-          return (
-            <div
-              key={idx}
-              className="flex items-center justify-between text-xs"
-            >
-              <span className="text-muted-foreground min-w-[70px]">
-                {dateStr} ({dayOfWeek})
-              </span>
-              <div className="flex items-center gap-1 flex-wrap justify-end">
-                {warmupSet && (
-                  <span className="px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                    W:{" "}
-                    {warmupSet.weight === 0
-                      ? warmupSet.reps
-                      : `${warmupSet.weight}×${warmupSet.reps}`}
-                  </span>
-                )}
-                {workingSets.map((set) => (
-                  <span
-                    key={set.setNumber}
-                    className="px-1.5 py-0.5 rounded bg-primary/10 text-foreground font-medium"
-                  >
-                    {set.weight === 0 ? set.reps : `${set.weight}×${set.reps}`}
-                  </span>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
   );
 }
 
@@ -330,21 +240,67 @@ function UnsavedExerciseCard({
     value: number;
   } | null>(null);
 
-  const muscleGroup = getMuscleGroup(exerciseName);
-  const colorClass = muscleGroup ? MUSCLE_GROUP_COLORS[muscleGroup] : "";
   const knownExercises = Object.keys(EXERCISE_MUSCLE_GROUPS);
+
+  // Fetch exercise history
+  const { data: historyData } = useExerciseHistory(
+    exerciseName,
+    spreadsheetId,
+    sheetName
+  );
+
+  // Get last session data
+  const lastSession =
+    historyData?.history && historyData.history.length > 0
+      ? [...historyData.history].sort((a, b) => b.date.localeCompare(a.date))[0]
+      : null;
+
+  const lastWarmup = lastSession?.sets.find((s) => s.isWarmup);
+  const lastWorkingSets = lastSession?.sets.filter((s) => !s.isWarmup) || [];
+
+  // Calculate volume diff for a set
+  const calculateDiff = (
+    currentWeight: number,
+    currentReps: number,
+    lastWeight: number,
+    lastReps: number
+  ) => {
+    const isBodyweight = currentWeight === 0 && lastWeight === 0;
+    if (isBodyweight) {
+      const diff = currentReps - lastReps;
+      return diff !== 0 ? diff : null;
+    } else {
+      const currentVolume = currentWeight * currentReps;
+      const lastVolume = lastWeight * lastReps;
+      const diff = currentVolume - lastVolume;
+      return diff !== 0 ? diff : null;
+    }
+  };
 
   const openModal = (
     setIndex: number | "warmup",
     field: "weight" | "reps",
     value: number
   ) => {
+    // Pre-fill with last session value if available and current value is 0
+    let initialValue = value;
+    if (value === 0 && lastSession) {
+      if (setIndex === "warmup" && lastWarmup) {
+        initialValue = field === "weight" ? lastWarmup.weight : lastWarmup.reps;
+      } else if (typeof setIndex === "number" && lastWorkingSets[setIndex]) {
+        initialValue =
+          field === "weight"
+            ? lastWorkingSets[setIndex].weight
+            : lastWorkingSets[setIndex].reps;
+      }
+    }
+
     setModalState({
       open: true,
       type: field,
       setIndex,
       field,
-      value,
+      value: initialValue,
     });
   };
 
@@ -417,76 +373,157 @@ function UnsavedExerciseCard({
                 </div>
               )}
             </div>
-
-            {muscleGroup && (
-              <span
-                className={`text-xs px-2 py-1 rounded-full whitespace-nowrap ${colorClass}`}
-              >
-                {muscleGroup}
-              </span>
-            )}
           </div>
         </CardHeader>
 
-        {/* Show exercise history */}
-        <ExerciseHistoryPreview
-          exerciseName={exerciseName}
-          spreadsheetId={spreadsheetId}
-          sheetName={sheetName}
-        />
-
         <CardContent>
           {/* Warmup */}
-          <div className="mb-3">
-            <label className="text-xs font-medium text-muted-foreground uppercase">
-              Warmup
-            </label>
-            <div className="flex gap-2 mt-1">
+          <div className="mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium min-w-[80px]">Warmup</span>
               <Button
                 variant="outline"
                 className="flex-1 h-12 text-base font-semibold"
                 onClick={() => openModal("warmup", "weight", warmup.weight)}
+                disabled={!exerciseName.trim()}
               >
-                {warmup.weight === 0 ? "BW" : `${warmup.weight}kg`}
+                {warmup.weight === 0 && lastWarmup ? (
+                  <span className="!text-gray-400">
+                    {lastWarmup.weight === 0 ? "BW" : `${lastWarmup.weight}kg`}
+                  </span>
+                ) : warmup.weight === 0 ? (
+                  "BW"
+                ) : (
+                  `${warmup.weight}kg`
+                )}
               </Button>
               <Button
                 variant="outline"
                 className="flex-1 h-12 text-base font-semibold"
                 onClick={() => openModal("warmup", "reps", warmup.reps)}
+                disabled={!exerciseName.trim()}
               >
-                {warmup.reps || "0"} reps
+                {warmup.reps === 0 && lastWarmup ? (
+                  <span className="!text-gray-400">
+                    {lastWarmup.reps || "0"}
+                  </span>
+                ) : (
+                  warmup.reps || "0"
+                )}
               </Button>
+              <div className="w-12 text-xs text-center">
+                {lastWarmup ? (
+                  (() => {
+                    const diff = calculateDiff(
+                      warmup.weight,
+                      warmup.reps,
+                      lastWarmup.weight,
+                      lastWarmup.reps
+                    );
+                    if (diff === null)
+                      return <span className="text-muted-foreground">0</span>;
+                    const isBodyweight =
+                      warmup.weight === 0 && lastWarmup.weight === 0;
+                    return (
+                      <span
+                        className={
+                          diff > 0
+                            ? "text-green-500"
+                            : diff < 0
+                            ? "text-red-500"
+                            : "text-muted-foreground"
+                        }
+                      >
+                        {diff > 0 ? "+" : ""}
+                        {diff}
+                        {isBodyweight ? "" : "kg"}
+                      </span>
+                    );
+                  })()
+                ) : (
+                  <span className="text-muted-foreground">0</span>
+                )}
+              </div>
             </div>
           </div>
 
           {/* Working sets */}
-          <div>
-            <label className="text-xs font-medium text-muted-foreground uppercase">
-              Working Sets
-            </label>
-            <div className="grid grid-cols-4 gap-2 mt-1">
-              {sets.map((set, setIndex) => (
-                <div key={setIndex} className="space-y-1">
-                  <div className="text-[10px] text-center text-muted-foreground">
+          <div className="space-y-2">
+            {sets.map((set, setIndex) => {
+              const lastSet = lastWorkingSets[setIndex];
+              return (
+                <div key={setIndex} className="flex items-center gap-2">
+                  <span className="text-sm font-medium min-w-[80px]">
                     Set {setIndex + 1}
-                  </div>
+                  </span>
                   <Button
                     variant="outline"
-                    className="w-full h-10 text-sm px-1"
+                    className="flex-1 h-12 text-base font-semibold"
                     onClick={() => openModal(setIndex, "weight", set.weight)}
+                    disabled={!exerciseName.trim()}
                   >
-                    {set.weight === 0 ? "BW" : set.weight}
+                    {set.weight === 0 && lastSet ? (
+                      <span className="!text-gray-400">
+                        {lastSet.weight === 0 ? "BW" : lastSet.weight}
+                      </span>
+                    ) : set.weight === 0 ? (
+                      "BW"
+                    ) : (
+                      set.weight
+                    )}
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full h-10 text-sm px-1"
+                    className="flex-1 h-12 text-base font-semibold"
                     onClick={() => openModal(setIndex, "reps", set.reps)}
+                    disabled={!exerciseName.trim()}
                   >
-                    {set.reps || "0"}
+                    {set.reps === 0 && lastSet ? (
+                      <span className="!text-gray-400">
+                        {lastSet.reps || "0"}
+                      </span>
+                    ) : (
+                      set.reps || "0"
+                    )}
                   </Button>
+                  <div className="w-12 text-xs text-center">
+                    {lastSet ? (
+                      (() => {
+                        const diff = calculateDiff(
+                          set.weight,
+                          set.reps,
+                          lastSet.weight,
+                          lastSet.reps
+                        );
+                        if (diff === null)
+                          return (
+                            <span className="text-muted-foreground">0</span>
+                          );
+                        const isBodyweight =
+                          set.weight === 0 && lastSet.weight === 0;
+                        return (
+                          <span
+                            className={
+                              diff > 0
+                                ? "text-green-500"
+                                : diff < 0
+                                ? "text-red-500"
+                                : "text-muted-foreground"
+                            }
+                          >
+                            {diff > 0 ? "+" : ""}
+                            {diff}
+                            {isBodyweight ? "" : "kg"}
+                          </span>
+                        );
+                      })()
+                    ) : (
+                      <span className="text-muted-foreground">0</span>
+                    )}
+                  </div>
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
 
           {/* Save and Reset buttons */}
@@ -554,7 +591,6 @@ export function LogWorkoutView({
   );
 
   // State for the current unsaved exercise
-  const [showUnsavedExercise, setShowUnsavedExercise] = useState(true);
   const [unsavedExercise, setUnsavedExercise] = useState({
     name: "",
     warmup: { weight: 0, reps: 0 },
@@ -613,55 +649,60 @@ export function LogWorkoutView({
     saveMutation.mutate([entry], {
       onSuccess: () => {
         resetUnsavedExercise();
-        setShowUnsavedExercise(false);
       },
     });
   };
 
-  const handleAddAnotherExercise = () => {
-    resetUnsavedExercise();
-    setShowUnsavedExercise(true);
+  // Format date for header: "Sunday Jan 4th"
+  const formatDateHeader = () => {
+    const date = new Date(selectedDate);
+    const weekday = date.toLocaleDateString("en-US", { weekday: "long" });
+    const month = date.toLocaleDateString("en-US", { month: "short" });
+    const day = date.getDate();
+    const suffix =
+      day === 1 || day === 21 || day === 31
+        ? "st"
+        : day === 2 || day === 22
+        ? "nd"
+        : day === 3 || day === 23
+        ? "rd"
+        : "th";
+    return `${weekday} ${month} ${day}${suffix}`;
   };
 
   return (
     <div className="p-4 space-y-4">
-      {/* Date selector */}
-      <Card>
-        <CardContent className="pt-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">
-                Date
-              </label>
-              <Input
-                type="date"
-                value={selectedDate}
-                readOnly
-                className="mt-1 bg-muted cursor-not-allowed"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium text-muted-foreground">
-                Day
-              </label>
-              <div className="mt-1 py-2 px-3 bg-muted rounded-md text-sm">
-                {selectedDay}
-              </div>
-            </div>
-          </div>
-          <div className="mt-2 text-xs text-muted-foreground">
-            Week {getWeekNumber(new Date(selectedDate))} of{" "}
-            {new Date(selectedDate).getFullYear()}
-          </div>
-        </CardContent>
-      </Card>
+      {/* Large Date Header */}
+      <h1 className="text-3xl font-bold">{formatDateHeader()}</h1>
+
+      {/* Unsaved exercise form */}
+      <UnsavedExerciseCard
+        exerciseName={unsavedExercise.name}
+        onExerciseNameChange={(name) =>
+          setUnsavedExercise((prev) => ({ ...prev, name }))
+        }
+        warmup={unsavedExercise.warmup}
+        sets={unsavedExercise.sets}
+        onWarmupChange={(warmup) =>
+          setUnsavedExercise((prev) => ({ ...prev, warmup }))
+        }
+        onSetChange={(index, set) =>
+          setUnsavedExercise((prev) => {
+            const newSets = [...prev.sets];
+            newSets[index] = set;
+            return { ...prev, sets: newSets };
+          })
+        }
+        onSave={handleSave}
+        onReset={resetUnsavedExercise}
+        isSaving={saveMutation.isPending}
+        spreadsheetId={spreadsheetId}
+        sheetName={sheetName}
+      />
 
       {/* Saved exercises (read-only) */}
       {savedWorkout?.exercises && savedWorkout.exercises.length > 0 && (
         <>
-          <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide">
-            Saved Exercises
-          </div>
           {savedWorkout.exercises.map((exercise) => (
             <SavedExerciseCard
               key={exercise.id}
@@ -670,49 +711,6 @@ export function LogWorkoutView({
             />
           ))}
         </>
-      )}
-
-      {/* Unsaved exercise form */}
-      {showUnsavedExercise ? (
-        <>
-          {savedWorkout?.exercises && savedWorkout.exercises.length > 0 && (
-            <div className="text-sm font-medium text-muted-foreground uppercase tracking-wide mt-6">
-              Add New Exercise
-            </div>
-          )}
-          <UnsavedExerciseCard
-            exerciseName={unsavedExercise.name}
-            onExerciseNameChange={(name) =>
-              setUnsavedExercise((prev) => ({ ...prev, name }))
-            }
-            warmup={unsavedExercise.warmup}
-            sets={unsavedExercise.sets}
-            onWarmupChange={(warmup) =>
-              setUnsavedExercise((prev) => ({ ...prev, warmup }))
-            }
-            onSetChange={(index, set) =>
-              setUnsavedExercise((prev) => {
-                const newSets = [...prev.sets];
-                newSets[index] = set;
-                return { ...prev, sets: newSets };
-              })
-            }
-            onSave={handleSave}
-            onReset={resetUnsavedExercise}
-            isSaving={saveMutation.isPending}
-            spreadsheetId={spreadsheetId}
-            sheetName={sheetName}
-          />
-        </>
-      ) : (
-        <Button
-          variant="outline"
-          className="w-full"
-          onClick={handleAddAnotherExercise}
-        >
-          <Plus className="h-4 w-4 mr-2" />
-          Add Another Exercise
-        </Button>
       )}
 
       {saveMutation.isError && (

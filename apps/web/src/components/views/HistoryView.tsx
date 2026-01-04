@@ -3,54 +3,38 @@ import { useWorkouts, useExerciseList } from "@/hooks/useWorkouts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp, Search } from "lucide-react";
-import {
-  getWeekNumber,
-  getYear,
-  getDayOfWeek,
-  type Workout,
-} from "@monke-bar/shared";
+import { getDayOfWeek, type Workout } from "@monke-bar/shared";
 
 interface HistoryViewProps {
   spreadsheetId: string;
   sheetName: string;
 }
 
-interface GroupedWeek {
-  year: number;
-  weekNumber: number;
-  workouts: Workout[];
+interface GroupedDay {
+  date: string;
+  workout: Workout;
 }
 
 export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
   const { data: workouts, isLoading } = useWorkouts(spreadsheetId, sheetName);
   const { data: exercises } = useExerciseList(spreadsheetId, sheetName);
-  const [expandedWeek, setExpandedWeek] = useState<number | null>(null);
+  const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [filterExercise, setFilterExercise] = useState<string>("");
   const [searchOpen, setSearchOpen] = useState(false);
 
-  // Group workouts by week
-  const groupedWeeks = useMemo((): GroupedWeek[] => {
+  // Group workouts by day (one workout per day)
+  const groupedDays = useMemo((): GroupedDay[] => {
     if (!workouts) return [];
 
-    const weekMap = new Map<string, Workout[]>();
-
-    workouts.forEach((workout) => {
-      const year = getYear(workout.date);
-      const weekNumber = getWeekNumber(workout.date);
-      const key = `${year}-${weekNumber}`;
-
-      if (!weekMap.has(key)) {
-        weekMap.set(key, []);
-      }
-      weekMap.get(key)!.push(workout);
-    });
-
-    return Array.from(weekMap.entries())
-      .map(([key, workouts]) => {
-        const [year, weekNumber] = key.split("-").map(Number);
-        return { year, weekNumber, workouts };
-      })
-      .sort((a, b) => a.year - b.year || a.weekNumber - b.weekNumber);
+    return workouts
+      .map((workout) => ({
+        date: workout.date,
+        workout,
+      }))
+      .sort((a, b) => {
+        // Sort by date descending (most recent first)
+        return b.date.localeCompare(a.date);
+      });
   }, [workouts]);
 
   if (isLoading) {
@@ -76,24 +60,22 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
   }
 
   // Filter by exercise if selected
-  const filteredWeeks = filterExercise
-    ? groupedWeeks
-        .map((week) => ({
-          ...week,
-          workouts: week.workouts
-            .map((workout) => ({
-              ...workout,
-              exercises: workout.exercises.filter((e) =>
-                e.name.toLowerCase().includes(filterExercise.toLowerCase())
-              ),
-            }))
-            .filter((workout) => workout.exercises.length > 0),
+  const filteredDays = filterExercise
+    ? groupedDays
+        .map((day) => ({
+          ...day,
+          workout: {
+            ...day.workout,
+            exercises: day.workout.exercises.filter((e) =>
+              e.name.toLowerCase().includes(filterExercise.toLowerCase())
+            ),
+          },
         }))
-        .filter((week) => week.workouts.length > 0)
-    : groupedWeeks;
+        .filter((day) => day.workout.exercises.length > 0)
+    : groupedDays;
 
-  const toggleWeek = (weekNumber: number) => {
-    setExpandedWeek(expandedWeek === weekNumber ? null : weekNumber);
+  const toggleDay = (date: string) => {
+    setExpandedDay(expandedDay === date ? null : date);
   };
 
   return (
@@ -147,24 +129,21 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
         )}
       </div>
 
-      {/* Week List */}
+      {/* Day List */}
       <div className="space-y-3">
-        {filteredWeeks.map((week) => (
-          <Card key={`${week.year}-${week.weekNumber}`}>
-            <button
-              onClick={() => toggleWeek(week.year * 100 + week.weekNumber)}
-              className="w-full"
-            >
+        {filteredDays.map((day) => (
+          <Card key={day.date}>
+            <button onClick={() => toggleDay(day.date)} className="w-full">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base flex items-center justify-center">
                   <span>
-                    Week {week.weekNumber}, {week.year}
+                    {getDayOfWeek(day.date)} ({day.date})
                   </span>
                   <div className="flex items-center gap-2 ml-auto">
                     <span className="text-xs text-muted-foreground">
-                      {week.workouts.length} days
+                      {day.workout.exercises.length} exercises
                     </span>
-                    {expandedWeek === week.year * 100 + week.weekNumber ? (
+                    {expandedDay === day.date ? (
                       <ChevronUp className="h-4 w-4" />
                     ) : (
                       <ChevronDown className="h-4 w-4" />
@@ -174,40 +153,28 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
               </CardHeader>
             </button>
 
-            {expandedWeek === week.year * 100 + week.weekNumber && (
+            {expandedDay === day.date && (
               <CardContent className="pt-0">
-                <div className="space-y-4">
-                  {week.workouts.map((workout) => (
-                    <div key={workout.date} className="space-y-2">
-                      <h4 className="text-sm font-semibold text-primary">
-                        {getDayOfWeek(workout.date)} ({workout.date})
-                      </h4>
-                      <div className="space-y-2">
-                        {workout.exercises.map((exercise, idx) => (
-                          <div
-                            key={idx}
-                            className="p-2 rounded-lg bg-secondary/30"
+                <div className="space-y-2">
+                  {day.workout.exercises.map((exercise, idx) => (
+                    <div key={idx} className="p-2 rounded-lg bg-secondary/30">
+                      <p className="font-medium text-sm mb-1">
+                        {exercise.name}
+                      </p>
+                      <div className="flex flex-wrap gap-1">
+                        {exercise.sets.map((set) => (
+                          <span
+                            key={set.setNumber}
+                            className={`text-xs px-2 py-0.5 rounded ${
+                              set.isWarmup
+                                ? "bg-muted text-muted-foreground"
+                                : "bg-secondary"
+                            }`}
                           >
-                            <p className="font-medium text-sm mb-1">
-                              {exercise.name}
-                            </p>
-                            <div className="flex flex-wrap gap-1">
-                              {exercise.sets.map((set) => (
-                                <span
-                                  key={set.setNumber}
-                                  className={`text-xs px-2 py-0.5 rounded ${
-                                    set.isWarmup
-                                      ? "bg-muted text-muted-foreground"
-                                      : "bg-secondary"
-                                  }`}
-                                >
-                                  {set.weight === 0
-                                    ? `${set.reps}`
-                                    : `${set.weight}×${set.reps}`}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
+                            {set.weight === 0
+                              ? `${set.reps}`
+                              : `${set.weight}×${set.reps}`}
+                          </span>
                         ))}
                       </div>
                     </div>
@@ -219,7 +186,7 @@ export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
         ))}
       </div>
 
-      {filteredWeeks.length === 0 && filterExercise && (
+      {filteredDays.length === 0 && filterExercise && (
         <Card>
           <CardContent className="py-8 text-center">
             <p className="text-muted-foreground">

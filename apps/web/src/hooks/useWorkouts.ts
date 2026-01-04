@@ -254,6 +254,8 @@ export function useAddWorkoutEntries(spreadsheetId: string, sheetName: string) {
     mutationFn: workoutLog.addEntries,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workout-log"] });
+      queryClient.invalidateQueries({ queryKey: ["workouts"] });
+      queryClient.invalidateQueries({ queryKey: ["exercises"] });
       toast.success("Workout saved!");
     },
     onError: (error) => {

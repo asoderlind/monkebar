@@ -1,13 +1,7 @@
-import {
-  Dumbbell,
-  BarChart3,
-  History,
-  Settings,
-  PlusCircle,
-} from "lucide-react";
+import { BarChart3, History, Settings, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type View = "workout" | "log" | "analytics" | "history" | "settings";
+type View = "log" | "analytics" | "history" | "settings";
 
 interface NavigationProps {
   currentView: View;
@@ -16,7 +10,6 @@ interface NavigationProps {
 
 export function Navigation({ currentView, onViewChange }: NavigationProps) {
   const navItems = [
-    { id: "workout" as const, label: "Workout", icon: Dumbbell },
     { id: "log" as const, label: "Log", icon: PlusCircle },
     { id: "analytics" as const, label: "Analytics", icon: BarChart3 },
     { id: "history" as const, label: "History", icon: History },
