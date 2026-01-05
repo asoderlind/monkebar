@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useLocalStorage } from "@/hooks/useLocalStorage";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,7 @@ import {
   Check,
   Loader2,
   RotateCcw,
+  FileCheck,
 } from "lucide-react";
 import {
   useAddWorkoutEntries,
@@ -590,8 +592,29 @@ export function LogWorkoutView({
     sheetName
   );
 
-  // State for the current unsaved exercise
-  const [unsavedExercise, setUnsavedExercise] = useState({
+  // State for the current unsaved exercise with localStorage persistence
+  const [draftData, setDraftData] = useLocalStorage<{
+    exercise: {
+      name: string;
+      warmup: { weight: number; reps: number };
+      sets: Array<{ weight: number; reps: number }>;
+    };
+    timestamp: number;
+  } | null>("workout-draft", null);
+
+  // Check if draft is older than 24 hours and clear it
+  useEffect(() => {
+    if (draftData && draftData.timestamp) {
+      const age = Date.now() - draftData.timestamp;
+      const twentyFourHours = 24 * 60 * 60 * 1000;
+      if (age > twentyFourHours) {
+        setDraftData(null);
+      }
+    }
+  }, [draftData, setDraftData]);
+
+  // Initialize unsavedExercise from draft or default
+  const initialExercise = {
     name: "",
     warmup: { weight: 0, reps: 0 },
     sets: [
@@ -600,13 +623,41 @@ export function LogWorkoutView({
       { weight: 0, reps: 0 },
       { weight: 0, reps: 0 },
     ],
-  });
+  };
+
+  const [unsavedExercise, setUnsavedExerciseState] = useState(
+    draftData?.exercise || initialExercise
+  );
+
+  // Update localStorage whenever unsavedExercise changes
+  const setUnsavedExercise = (
+    update:
+      | typeof initialExercise
+      | ((prev: typeof initialExercise) => typeof initialExercise)
+  ) => {
+    setUnsavedExerciseState((prev) => {
+      const next = typeof update === "function" ? update(prev) : update;
+      // Save to localStorage with timestamp
+      setDraftData({
+        exercise: next,
+        timestamp: Date.now(),
+      });
+      return next;
+    });
+  };
+
+  // Track if there's any draft content
+  const hasDraftContent =
+    unsavedExercise.name.trim() !== "" ||
+    unsavedExercise.warmup.weight > 0 ||
+    unsavedExercise.warmup.reps > 0 ||
+    unsavedExercise.sets.some((s) => s.weight > 0 || s.reps > 0);
 
   // Save workout mutation
   const saveMutation = useAddWorkoutEntries(spreadsheetId, sheetName);
 
   const resetUnsavedExercise = () => {
-    setUnsavedExercise({
+    const emptyExercise = {
       name: "",
       warmup: { weight: 0, reps: 0 },
       sets: [
@@ -615,7 +666,9 @@ export function LogWorkoutView({
         { weight: 0, reps: 0 },
         { weight: 0, reps: 0 },
       ],
-    });
+    };
+    setUnsavedExerciseState(emptyExercise);
+    setDraftData(null);
   };
 
   const handleSave = () => {
@@ -673,7 +726,15 @@ export function LogWorkoutView({
   return (
     <div className="p-4 space-y-4">
       {/* Large Date Header */}
-      <h1 className="text-3xl font-bold">{formatDateHeader()}</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold">{formatDateHeader()}</h1>
+        {hasDraftContent && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <FileCheck className="h-4 w-4" />
+            <span>Draft saved</span>
+          </div>
+        )}
+      </div>
 
       {/* Unsaved exercise form */}
       <UnsavedExerciseCard
