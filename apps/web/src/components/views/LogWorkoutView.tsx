@@ -671,6 +671,8 @@ export function LogWorkoutView({
         { weight: 0, reps: 0 },
       ],
     };
+    // Intentionally bypass setUnsavedExercise here so we don't persist an "empty"
+    // draft to localStorage. Instead, reset state and explicitly clear the draft.
     setUnsavedExerciseState(emptyExercise);
     setDraftData(null);
   };
