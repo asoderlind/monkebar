@@ -611,7 +611,7 @@ export function LogWorkoutView({
         setDraftData(null);
       }
     }
-  }, [draftData, setDraftData]);
+  }, [draftData]);
 
   // Initialize unsavedExercise from draft or default
   const initialExercise = {
