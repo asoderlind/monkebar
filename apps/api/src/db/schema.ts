@@ -136,6 +136,7 @@ export const exerciseMaster = pgTable("exercise_master", {
   name: varchar("name", { length: 255 }).notNull().unique(),
   muscleGroup: varchar("muscle_group", { length: 100 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
 });
 
 // Type exports for use in the app
