@@ -22,6 +22,13 @@
       "when": 1767622346570,
       "tag": "0002_rich_omega_flight",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1767623571219,
+      "tag": "0003_conscious_titania",
+      "breakpoints": true
     }
   ]
 }
