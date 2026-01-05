@@ -275,6 +275,8 @@ const addEntriesSchema = z.object({
           reps: z.number().min(0),
         })
       ),
+      groupId: z.string().optional(), // ID for linking superset exercises (e.g., "SS1")
+      groupType: z.enum(["superset"]).optional(), // Type of grouping
     })
   ),
 });

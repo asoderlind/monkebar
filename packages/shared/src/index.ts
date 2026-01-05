@@ -95,6 +95,8 @@ export interface Exercise {
   id: string;
   name: string;
   sets: WorkoutSet[];
+  groupId?: string; // ID for linking superset exercises (e.g., "SS1")
+  groupType?: "superset"; // Type of grouping - currently only superset supported
 }
 
 /**

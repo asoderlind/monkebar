@@ -18,6 +18,8 @@ export interface WorkoutLogEntry {
   exercise: string;
   warmup?: { weight: number; reps: number };
   sets: Array<{ weight: number; reps: number }>;
+  groupId?: string; // ID for linking superset exercises (e.g., "SS1")
+  groupType?: "superset"; // Type of grouping
 }
 
 async function fetchApi<T>(

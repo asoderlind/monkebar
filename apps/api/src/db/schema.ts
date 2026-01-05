@@ -94,6 +94,8 @@ export const exercises = pgTable("exercises", {
     .notNull(),
   name: varchar("name", { length: 255 }).notNull(),
   orderIndex: integer("order_index").notNull(), // Order within the day
+  groupId: varchar("group_id", { length: 50 }), // ID for linking superset exercises (e.g., "SS1")
+  groupType: varchar("group_type", { length: 20 }), // Type of grouping: "superset"
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
