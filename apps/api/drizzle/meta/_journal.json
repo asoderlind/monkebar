@@ -15,6 +15,13 @@
       "when": 1767569650934,
       "tag": "0001_demonic_madame_web",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1767622346570,
+      "tag": "0002_rich_omega_flight",
+      "breakpoints": true
     }
   ]
 }

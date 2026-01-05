@@ -234,6 +234,16 @@ export type MuscleGroup =
   | "Legs"
   | "Core";
 
+export const MUSCLE_GROUPS: MuscleGroup[] = [
+  "Chest",
+  "Triceps",
+  "Shoulders",
+  "Biceps",
+  "Back",
+  "Legs",
+  "Core",
+];
+
 /**
  * Exercise to muscle group mapping
  */
@@ -284,6 +294,23 @@ export const MUSCLE_GROUP_COLORS: Record<MuscleGroup, string> = {
   Legs: "bg-purple-500/20 text-purple-700 dark:text-purple-400",
   Core: "bg-pink-500/20 text-pink-700 dark:text-pink-400",
 };
+
+// ============================================================================
+// Exercise Master Types
+// ============================================================================
+
+export interface ExerciseMaster {
+  id: number;
+  name: string;
+  muscleGroup: MuscleGroup | null;
+  createdAt: Date;
+  deletedAt: Date | null;
+}
+
+export interface NewExerciseMaster {
+  name: string;
+  muscleGroup?: MuscleGroup | null;
+}
 
 /**
  * Default column mapping based on the sheet structure shown in the image

@@ -5,6 +5,8 @@ import type {
   ExerciseStats,
   VolumeHistory,
   DayOfWeek,
+  ExerciseMaster,
+  NewExerciseMaster,
 } from "@monke-bar/shared";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
@@ -259,4 +261,23 @@ export const sheetsApi = {
         body: JSON.stringify({ row, col, weight, reps }),
       }
     ),
+};
+
+export const exercisesApi = {
+  getAll: () => fetchApi<ExerciseMaster[]>("/exercises"),
+  getById: (id: number) => fetchApi<ExerciseMaster>(`/exercises/${id}`),
+  create: (data: NewExerciseMaster) =>
+    fetchApi<ExerciseMaster>("/exercises", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: number, data: Partial<NewExerciseMaster>) =>
+    fetchApi<ExerciseMaster>(`/exercises/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: number) =>
+    fetchApi<{ message: string }>(`/exercises/${id}`, {
+      method: "DELETE",
+    }),
 };

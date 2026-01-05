@@ -3,13 +3,14 @@ import { useSession } from "./lib/auth";
 import { LogWorkoutView } from "./components/views/LogWorkoutView";
 import { AnalyticsView } from "./components/views/AnalyticsView";
 import { HistoryView } from "./components/views/HistoryView";
+import { ExercisesView } from "./components/views/ExercisesView";
 import { SettingsView } from "./components/views/SettingsView";
 import { LoginView } from "./components/views/LoginView";
 import { Navigation } from "./components/Navigation";
 import { Header } from "./components/Header";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 
-type View = "log" | "analytics" | "history" | "settings";
+type View = "log" | "analytics" | "history" | "exercises" | "settings";
 
 function App() {
   const { data: session, isPending } = useSession();
@@ -66,6 +67,7 @@ function App() {
         {currentView === "history" && (
           <HistoryView spreadsheetId={spreadsheetId} sheetName={sheetName} />
         )}
+        {currentView === "exercises" && <ExercisesView />}
         {currentView === "settings" && (
           <SettingsView
             spreadsheetId={spreadsheetId}

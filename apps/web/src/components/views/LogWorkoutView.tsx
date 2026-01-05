@@ -25,13 +25,10 @@ import {
   useExerciseHistory,
   useWorkoutByDate,
 } from "@/hooks/useWorkouts";
+import { useExercises } from "@/hooks/useExercises";
 import type { WorkoutLogEntry } from "@/lib/api";
-import type { DayOfWeek } from "@monke-bar/shared";
-import {
-  EXERCISE_MUSCLE_GROUPS,
-  getMuscleGroup,
-  MUSCLE_GROUP_COLORS,
-} from "@monke-bar/shared";
+import type { DayOfWeek, MuscleGroup } from "@monke-bar/shared";
+import { getMuscleGroup, MUSCLE_GROUP_COLORS } from "@monke-bar/shared";
 
 const DAYS: DayOfWeek[] = [
   "Monday",
@@ -242,7 +239,18 @@ function UnsavedExerciseCard({
     value: number;
   } | null>(null);
 
-  const knownExercises = Object.keys(EXERCISE_MUSCLE_GROUPS);
+  // Fetch exercises from database
+  const { data: exercisesData } = useExercises();
+  const knownExercises = exercisesData?.map((ex) => ex.name) || [];
+
+  // Create a lookup map for exercise muscle groups
+  const exerciseMuscleGroupMap =
+    exercisesData?.reduce((acc, ex) => {
+      if (ex.muscleGroup) {
+        acc[ex.name] = ex.muscleGroup;
+      }
+      return acc;
+    }, {} as Record<string, MuscleGroup>) || {};
 
   // Fetch exercise history
   const { data: historyData } = useExerciseHistory(
@@ -350,7 +358,8 @@ function UnsavedExerciseCard({
                       name.toLowerCase().includes(exerciseName.toLowerCase())
                     )
                     .map((name) => {
-                      const mg = getMuscleGroup(name);
+                      const mg =
+                        exerciseMuscleGroupMap[name] || getMuscleGroup(name);
                       return (
                         <button
                           key={name}

@@ -1,0 +1,1 @@
+ALTER TABLE "exercise_master" ADD COLUMN "deleted_at" timestamp;
