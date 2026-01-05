@@ -254,6 +254,7 @@ export function LogWorkoutView({
               </div>
             );
           })}
+          ear{" "}
         </>
       )}
 
