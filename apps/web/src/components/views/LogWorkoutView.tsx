@@ -647,11 +647,15 @@ export function LogWorkoutView({
   };
 
   // Track if there's any draft content
+  const isDraftFresh =
+    draftData?.timestamp != null &&
+    Date.now() - draftData.timestamp <= 24 * 60 * 60 * 1000;
   const hasDraftContent =
-    unsavedExercise.name.trim() !== "" ||
-    unsavedExercise.warmup.weight > 0 ||
-    unsavedExercise.warmup.reps > 0 ||
-    unsavedExercise.sets.some((s) => s.weight > 0 || s.reps > 0);
+    isDraftFresh &&
+    (unsavedExercise.name.trim() !== "" ||
+      unsavedExercise.warmup.weight > 0 ||
+      unsavedExercise.warmup.reps > 0 ||
+      unsavedExercise.sets.some((s) => s.weight > 0 || s.reps > 0));
 
   // Save workout mutation
   const saveMutation = useAddWorkoutEntries(spreadsheetId, sheetName);
