@@ -240,17 +240,15 @@ function UnsavedExerciseCard({
   // Fetch exercises from database
   const { data: exercisesData } = useExercises();
   const knownExercises = exercisesData?.map((ex) => ex.name) || [];
-  
+
   // Create a lookup map for exercise muscle groups
-  const exerciseMuscleGroupMap = exercisesData?.reduce(
-    (acc, ex) => {
+  const exerciseMuscleGroupMap =
+    exercisesData?.reduce((acc, ex) => {
       if (ex.muscleGroup) {
         acc[ex.name] = ex.muscleGroup;
       }
       return acc;
-    },
-    {} as Record<string, MuscleGroup>
-  ) || {};
+    }, {} as Record<string, MuscleGroup>) || {};
 
   // Fetch exercise history
   const { data: historyData } = useExerciseHistory(
@@ -358,7 +356,8 @@ function UnsavedExerciseCard({
                       name.toLowerCase().includes(exerciseName.toLowerCase())
                     )
                     .map((name) => {
-                      const mg = exerciseMuscleGroupMap[name] || getMuscleGroup(name);
+                      const mg =
+                        exerciseMuscleGroupMap[name] || getMuscleGroup(name);
                       return (
                         <button
                           key={name}
