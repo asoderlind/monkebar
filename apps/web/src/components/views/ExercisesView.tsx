@@ -64,11 +64,11 @@ export function ExercisesView() {
 
   const handleSubmitAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
+    if (!formData.name.trim() || !formData.muscleGroup) return;
 
     await createMutation.mutateAsync({
       name: formData.name.trim(),
-      muscleGroup: formData.muscleGroup || undefined,
+      muscleGroup: formData.muscleGroup,
     });
 
     setIsAddDialogOpen(false);
@@ -77,13 +77,14 @@ export function ExercisesView() {
 
   const handleSubmitEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedExercise || !formData.name.trim()) return;
+    if (!selectedExercise || !formData.name.trim() || !formData.muscleGroup)
+      return;
 
     await updateMutation.mutateAsync({
       id: selectedExercise.id,
       data: {
         name: formData.name.trim(),
-        muscleGroup: formData.muscleGroup || null,
+        muscleGroup: formData.muscleGroup,
       },
     });
 
@@ -255,7 +256,7 @@ export function ExercisesView() {
                   htmlFor="muscleGroup"
                   className="text-sm font-medium leading-none"
                 >
-                  Muscle Group
+                  Muscle Group <span className="text-destructive">*</span>
                 </label>
                 <select
                   id="muscleGroup"
@@ -267,6 +268,7 @@ export function ExercisesView() {
                       muscleGroup: e.target.value as MuscleGroup | "",
                     })
                   }
+                  required
                 >
                   <option value="">Select muscle group</option>
                   {MUSCLE_GROUPS.map((group) => (
@@ -326,7 +328,7 @@ export function ExercisesView() {
                   htmlFor="edit-muscleGroup"
                   className="text-sm font-medium leading-none"
                 >
-                  Muscle Group
+                  Muscle Group <span className="text-destructive">*</span>
                 </label>
                 <select
                   id="edit-muscleGroup"
@@ -338,6 +340,7 @@ export function ExercisesView() {
                       muscleGroup: e.target.value as MuscleGroup | "",
                     })
                   }
+                  required
                 >
                   <option value="">Select muscle group</option>
                   {MUSCLE_GROUPS.map((group) => (

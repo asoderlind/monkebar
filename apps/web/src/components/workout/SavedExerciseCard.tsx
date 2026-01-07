@@ -1,9 +1,10 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Check } from "lucide-react";
-import { getMuscleGroup, MUSCLE_GROUP_COLORS } from "@monke-bar/shared";
+import { MUSCLE_GROUP_COLORS, type MuscleGroup } from "@monke-bar/shared";
 
 interface SavedExerciseCardProps {
   exerciseName: string;
+  muscleGroup?: MuscleGroup | null;
   sets: Array<{ weight: number; reps: number; isWarmup: boolean }>;
   groupId?: string;
   groupType?: "superset";
@@ -11,11 +12,11 @@ interface SavedExerciseCardProps {
 
 export function SavedExerciseCard({
   exerciseName,
+  muscleGroup,
   sets,
   groupId,
   groupType,
 }: SavedExerciseCardProps) {
-  const muscleGroup = getMuscleGroup(exerciseName);
   const colorClass = muscleGroup ? MUSCLE_GROUP_COLORS[muscleGroup] : "";
 
   const warmupSet = sets.find((s) => s.isWarmup);

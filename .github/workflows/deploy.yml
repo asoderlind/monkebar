@@ -109,9 +109,12 @@ jobs:
             docker compose -f docker-compose.prod.yml down || true
 
             docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d postgres
+            docker compose -f docker-compose.prod.yml up -d db
             sleep 5  # Wait for postgres to be ready
-            docker compose -f docker-compose.prod.yml run --rm api node dist/db/migrate.js
+
+            # Run database migrations
+            docker compose -f docker-compose.prod.yml run --rm api pnpm db:migrate
+
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             docker image prune -f
 

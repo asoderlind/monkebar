@@ -136,7 +136,7 @@ export const syncLogs = pgTable("sync_logs", {
 export const exerciseMaster = pgTable("exercise_master", {
   id: serial("id").primaryKey(),
   name: varchar("name", { length: 255 }).notNull().unique(),
-  muscleGroup: varchar("muscle_group", { length: 100 }),
+  muscleGroup: varchar("muscle_group", { length: 100 }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),
 });

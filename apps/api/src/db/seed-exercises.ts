@@ -1,21 +1,29 @@
 import { db } from "./index.js";
 import { exerciseMaster } from "./schema.js";
-import { EXERCISE_MUSCLE_GROUPS } from "@monke-bar/shared";
+import type { MuscleGroup } from "@monke-bar/shared";
 import { sql } from "drizzle-orm";
+
+// Template for manually adding exercises to seed database
+// Add exercises in the format: { name: "Exercise Name", muscleGroup: "MuscleGroup" }
+const exercisesToSeed: Array<{ name: string; muscleGroup: MuscleGroup }> = [
+  // Example:
+  // { name: "Bench Press", muscleGroup: "Chest" },
+  // { name: "Squat", muscleGroup: "Legs" },
+];
 
 async function seedExercises() {
   console.log("🌱 Seeding exercises...");
 
-  const exercises = Object.entries(EXERCISE_MUSCLE_GROUPS).map(
-    ([name, muscleGroup]) => ({
-      name,
-      muscleGroup,
-    })
-  );
+  if (exercisesToSeed.length === 0) {
+    console.log(
+      "⚠️  No exercises to seed. Add exercises to the exercisesToSeed array."
+    );
+    process.exit(0);
+  }
 
   try {
     // Insert exercises, skip if they already exist (on conflict do nothing)
-    for (const exercise of exercises) {
+    for (const exercise of exercisesToSeed) {
       const existing = await db
         .select()
         .from(exerciseMaster)

@@ -147,8 +147,7 @@ export function UnsavedExerciseCard({
                       name.toLowerCase().includes(exerciseName.toLowerCase())
                     )
                     .map((name) => {
-                      const mg =
-                        exerciseMuscleGroupMap[name] || getMuscleGroup(name);
+                      const mg = exerciseMuscleGroupMap[name];
                       return (
                         <button
                           key={name}
