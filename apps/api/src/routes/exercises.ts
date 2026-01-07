@@ -29,8 +29,7 @@ const updateExerciseSchema = z.object({
   name: z.string().min(1).max(255).optional(),
   muscleGroup: z
     .enum(["Chest", "Triceps", "Shoulders", "Biceps", "Back", "Legs", "Core"])
-    .optional()
-    .nullable(),
+    .optional(),
 });
 
 /**
