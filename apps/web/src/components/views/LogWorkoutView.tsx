@@ -2,8 +2,9 @@ import { useState } from "react";
 import { FileCheck, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAddWorkoutEntries, useWorkoutByDate } from "@/hooks/useWorkouts";
+import { useExercises } from "@/hooks/useExercises";
 import type { WorkoutLogEntry } from "@/lib/api";
-import type { DayOfWeek } from "@monke-bar/shared";
+import type { DayOfWeek, MuscleGroup } from "@monke-bar/shared";
 import { SavedExerciseCard } from "@/components/workout/SavedExerciseCard";
 import { UnsavedExerciseCard } from "@/components/workout/UnsavedExerciseCard";
 import { useWorkoutDraft } from "@/components/workout/useWorkoutDraft";
@@ -24,6 +25,18 @@ export function LogWorkoutView({
     const dayIndex = new Date().getDay();
     return DAYS[dayIndex === 0 ? 6 : dayIndex - 1];
   });
+
+  // Fetch exercises from database to get muscle groups
+  const { data: exercisesData } = useExercises();
+
+  // Create a lookup map for exercise muscle groups
+  const exerciseMuscleGroupMap =
+    exercisesData?.reduce((acc, ex) => {
+      if (ex.muscleGroup) {
+        acc[ex.name] = ex.muscleGroup;
+      }
+      return acc;
+    }, {} as Record<string, MuscleGroup>) || {};
 
   // Fetch saved workouts for the selected date
   const { data: savedWorkout } = useWorkoutByDate(
@@ -245,6 +258,7 @@ export function LogWorkoutView({
                     )}
                     <SavedExerciseCard
                       exerciseName={exercise.name}
+                      muscleGroup={exerciseMuscleGroupMap[exercise.name]}
                       sets={exercise.sets}
                       groupId={exercise.groupId}
                       groupType={exercise.groupType}

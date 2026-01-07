@@ -14,9 +14,15 @@ exercisesRoutes.use("*", requireAuth);
 // Validation schemas
 const createExerciseSchema = z.object({
   name: z.string().min(1).max(255),
-  muscleGroup: z
-    .enum(["Chest", "Triceps", "Shoulders", "Biceps", "Back", "Legs", "Core"])
-    .optional(),
+  muscleGroup: z.enum([
+    "Chest",
+    "Triceps",
+    "Shoulders",
+    "Biceps",
+    "Back",
+    "Legs",
+    "Core",
+  ]),
 });
 
 const updateExerciseSchema = z.object({

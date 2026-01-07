@@ -247,44 +247,6 @@ export const MUSCLE_GROUPS: MuscleGroup[] = [
 ];
 
 /**
- * Exercise to muscle group mapping
- */
-export const EXERCISE_MUSCLE_GROUPS: Record<string, MuscleGroup> = {
-  "Flat Bench Press": "Chest",
-  "SH Triceps Rope Push": "Triceps",
-  "Shoulder Rotate Rope": "Shoulders",
-  "Rope SH Fly": "Shoulders",
-  "Rope Curls": "Biceps",
-  Chinups: "Back",
-  "Rope Face Pulls": "Back",
-  "Row Machine SH": "Back",
-  "Dumbell Shoulder Press": "Shoulders",
-  "Incline Smith Bench Press": "Chest",
-  "Yoga Ball Crunches": "Core",
-};
-
-/**
- * Get muscle group for an exercise (case-insensitive partial match)
- */
-export function getMuscleGroup(exerciseName: string): MuscleGroup | undefined {
-  // First try exact match
-  if (EXERCISE_MUSCLE_GROUPS[exerciseName]) {
-    return EXERCISE_MUSCLE_GROUPS[exerciseName];
-  }
-  // Then try case-insensitive partial match
-  const lowerName = exerciseName.toLowerCase();
-  for (const [exercise, group] of Object.entries(EXERCISE_MUSCLE_GROUPS)) {
-    if (
-      lowerName.includes(exercise.toLowerCase()) ||
-      exercise.toLowerCase().includes(lowerName)
-    ) {
-      return group;
-    }
-  }
-  return undefined;
-}
-
-/**
  * Muscle group colors for UI
  */
 export const MUSCLE_GROUP_COLORS: Record<MuscleGroup, string> = {
@@ -304,14 +266,14 @@ export const MUSCLE_GROUP_COLORS: Record<MuscleGroup, string> = {
 export interface ExerciseMaster {
   id: number;
   name: string;
-  muscleGroup: MuscleGroup | null;
+  muscleGroup: MuscleGroup;
   createdAt: Date;
   deletedAt: Date | null;
 }
 
 export interface NewExerciseMaster {
   name: string;
-  muscleGroup?: MuscleGroup | null;
+  muscleGroup: MuscleGroup;
 }
 
 /**
