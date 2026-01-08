@@ -56,6 +56,7 @@ export interface DiffResult {
   value: number | null;
   isProgressiveOverload: boolean; // true if weight increased (regardless of volume)
   displayValue: string | null; // what to show in UI
+  showPlusPrefix: boolean; // whether to add a '+' prefix in the UI
 }
 
 export function calculateDiffWithOverload(
@@ -72,6 +73,7 @@ export function calculateDiffWithOverload(
       value: diff !== 0 ? diff : null,
       isProgressiveOverload: false,
       displayValue: diff !== 0 ? diff.toString() : null,
+      showPlusPrefix: diff > 0,
     };
   }
   
@@ -85,7 +87,8 @@ export function calculateDiffWithOverload(
     return {
       value: volumeDiff,
       isProgressiveOverload: true,
-      displayValue: "+", // Just show "+" for progressive overload
+      displayValue: "+",
+      showPlusPrefix: false, // '+' is already in displayValue
     };
   }
   
@@ -94,5 +97,33 @@ export function calculateDiffWithOverload(
     value: volumeDiff !== 0 ? volumeDiff : null,
     isProgressiveOverload: false,
     displayValue: volumeDiff !== 0 ? volumeDiff.toString() : null,
+    showPlusPrefix: volumeDiff > 0,
   };
+}
+
+// Helper to render diff display for a set
+export function renderDiffDisplay(
+  diffResult: DiffResult,
+  currentWeight: number,
+  lastWeight: number
+): { displayText: string; colorClass: string } | null {
+  if (diffResult.displayValue === null) {
+    return null;
+  }
+
+  const isBodyweight = currentWeight === 0 && lastWeight === 0;
+  const isPositive = diffResult.isProgressiveOverload || (diffResult.value !== null && diffResult.value > 0);
+  const isNegative = !diffResult.isProgressiveOverload && diffResult.value !== null && diffResult.value < 0;
+  
+  const prefix = diffResult.showPlusPrefix ? "+" : "";
+  const suffix = isBodyweight || diffResult.isProgressiveOverload ? "" : "kg";
+  const displayText = `${prefix}${diffResult.displayValue}${suffix}`;
+  
+  const colorClass = isPositive
+    ? "text-green-500"
+    : isNegative
+    ? "text-red-500"
+    : "text-muted-foreground";
+  
+  return { displayText, colorClass };
 }

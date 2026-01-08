@@ -11,7 +11,7 @@ import {
   type WorkoutSet,
 } from "@monke-bar/shared";
 import { SetInputModal } from "./SetInputModal";
-import { calculateDiffWithOverload } from "./utils";
+import { calculateDiffWithOverload, renderDiffDisplay } from "./utils";
 import type { SetInput } from "./types";
 
 /**
@@ -250,25 +250,16 @@ export function UnsavedExerciseCard({
                       lastWarmup.weight,
                       lastWarmup.reps
                     );
-                    if (diffResult.displayValue === null)
+                    const display = renderDiffDisplay(
+                      diffResult,
+                      warmup.weight,
+                      lastWarmup.weight
+                    );
+                    if (!display)
                       return <span className="text-muted-foreground">0</span>;
-                    const isBodyweight =
-                      warmup.weight === 0 && lastWarmup.weight === 0;
-                    const isPositive = diffResult.isProgressiveOverload || (diffResult.value !== null && diffResult.value > 0);
-                    const isNegative = !diffResult.isProgressiveOverload && diffResult.value !== null && diffResult.value < 0;
                     return (
-                      <span
-                        className={
-                          isPositive
-                            ? "text-green-500"
-                            : isNegative
-                            ? "text-red-500"
-                            : "text-muted-foreground"
-                        }
-                      >
-                        {isPositive && diffResult.displayValue !== "+" ? "+" : ""}
-                        {diffResult.displayValue}
-                        {isBodyweight || diffResult.isProgressiveOverload ? "" : "kg"}
+                      <span className={display.colorClass}>
+                        {display.displayText}
                       </span>
                     );
                   })()
@@ -331,27 +322,18 @@ export function UnsavedExerciseCard({
                           lastSet.weight,
                           lastSet.reps
                         );
-                        if (diffResult.displayValue === null)
+                        const display = renderDiffDisplay(
+                          diffResult,
+                          set.weight,
+                          lastSet.weight
+                        );
+                        if (!display)
                           return (
                             <span className="text-muted-foreground">0</span>
                           );
-                        const isBodyweight =
-                          set.weight === 0 && lastSet.weight === 0;
-                        const isPositive = diffResult.isProgressiveOverload || (diffResult.value !== null && diffResult.value > 0);
-                        const isNegative = !diffResult.isProgressiveOverload && diffResult.value !== null && diffResult.value < 0;
                         return (
-                          <span
-                            className={
-                              isPositive
-                                ? "text-green-500"
-                                : isNegative
-                                ? "text-red-500"
-                                : "text-muted-foreground"
-                            }
-                          >
-                            {isPositive && diffResult.displayValue !== "+" ? "+" : ""}
-                            {diffResult.displayValue}
-                            {isBodyweight || diffResult.isProgressiveOverload ? "" : "kg"}
+                          <span className={display.colorClass}>
+                            {display.displayText}
                           </span>
                         );
                       })()
