@@ -24,27 +24,36 @@ import { Trophy, TrendingUp, Dumbbell, ChevronDown } from "lucide-react";
 interface AnalyticsViewProps {
   spreadsheetId: string;
   sheetName: string;
+  databaseMode: "sheets" | "postgres";
 }
 
 export function AnalyticsView({
   spreadsheetId,
   sheetName,
+  databaseMode,
 }: AnalyticsViewProps) {
   const { data: bestSets, isLoading: loadingBestSets } = useBestSets(
     spreadsheetId,
     sheetName,
-    30
+    30,
+    databaseMode
   );
   const { data: summary, isLoading: loadingSummary } = useSummary(
     spreadsheetId,
-    sheetName
+    sheetName,
+    databaseMode
   );
-  const { data: volumeHistory } = useVolumeHistory(spreadsheetId, sheetName);
+  const { data: volumeHistory } = useVolumeHistory(
+    spreadsheetId,
+    sheetName,
+    databaseMode
+  );
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const { data: exerciseStats } = useExerciseStats(
     selectedExercise || "",
     spreadsheetId,
-    sheetName
+    sheetName,
+    databaseMode
   );
 
   if (loadingBestSets || loadingSummary) {

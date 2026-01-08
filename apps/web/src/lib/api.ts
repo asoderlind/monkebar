@@ -283,3 +283,25 @@ export const exercisesApi = {
       method: "DELETE",
     }),
 };
+
+// Database Workouts API - For CSV import/export and Postgres operations
+export const dbWorkoutsApi = {
+  // Get all workouts from database
+  getAll: () => fetchApi<Workout[]>("/workouts/db"),
+
+  // Import workouts to database (bulk create/update)
+  import: (workouts: Workout[]) =>
+    fetchApi<{ imported: number; updated: number; total: number }>(
+      "/workouts/db",
+      {
+        method: "POST",
+        body: JSON.stringify({ workouts }),
+      }
+    ),
+
+  // Delete all workouts from database
+  deleteAll: () =>
+    fetchApi<{ message: string }>("/workouts/db", {
+      method: "DELETE",
+    }),
+};

@@ -13,11 +13,13 @@ import { formatDate, formatDateHeader, DAYS } from "@/components/workout/utils";
 interface LogWorkoutViewProps {
   spreadsheetId: string;
   sheetName: string;
+  databaseMode: "sheets" | "postgres";
 }
 
 export function LogWorkoutView({
   spreadsheetId,
   sheetName,
+  databaseMode,
 }: LogWorkoutViewProps) {
   // State for date selection
   const [selectedDate] = useState(() => formatDate(new Date()));
@@ -42,7 +44,8 @@ export function LogWorkoutView({
   const { data: savedWorkout } = useWorkoutByDate(
     selectedDate,
     spreadsheetId,
-    sheetName
+    sheetName,
+    databaseMode
   );
 
   // Use custom hook for draft management

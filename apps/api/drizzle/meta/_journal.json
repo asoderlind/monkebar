@@ -29,6 +29,20 @@
       "when": 1767623571219,
       "tag": "0003_conscious_titania",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1767900794171,
+      "tag": "0004_make_muscle_group_required",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1736401000000,
+      "tag": "0005_add_exercise_grouping",
+      "breakpoints": true
     }
   ]
 }

@@ -7,12 +7,14 @@ interface HeaderProps {
   spreadsheetId: string;
   sheetName: string;
   onSettingsClick: () => void;
+  databaseMode: "sheets" | "postgres";
 }
 
 export function Header({
   spreadsheetId,
   sheetName,
   onSettingsClick,
+  databaseMode,
 }: HeaderProps) {
   const { data: syncStatus } = useSyncStatus();
   const syncMutation = useSync(spreadsheetId, sheetName);
@@ -34,18 +36,20 @@ export function Header({
         </div>
 
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => syncMutation.mutate()}
-            disabled={syncMutation.isPending || !spreadsheetId}
-          >
-            <RefreshCw
-              className={`h-5 w-5 ${
-                syncMutation.isPending ? "animate-spin" : ""
-              }`}
-            />
-          </Button>
+          {databaseMode === "sheets" && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => syncMutation.mutate()}
+              disabled={syncMutation.isPending || !spreadsheetId}
+            >
+              <RefreshCw
+                className={`h-5 w-5 ${
+                  syncMutation.isPending ? "animate-spin" : ""
+                }`}
+              />
+            </Button>
+          )}
           <Button variant="ghost" size="icon" onClick={onSettingsClick}>
             <Settings className="h-5 w-5" />
           </Button>

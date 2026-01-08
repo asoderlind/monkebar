@@ -104,6 +104,8 @@ export interface Exercise {
  */
 export interface Workout {
   date: string; // YYYY-MM-DD format
+  day?: string; // Day of week (optional for backwards compatibility)
+  dayOfWeek?: string; // Full day name (e.g., "Monday") - used for database
   exercises: Exercise[];
 }
 

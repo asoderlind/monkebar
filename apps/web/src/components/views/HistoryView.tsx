@@ -8,6 +8,7 @@ import { getDayOfWeek, type Workout } from "@monke-bar/shared";
 interface HistoryViewProps {
   spreadsheetId: string;
   sheetName: string;
+  databaseMode: "sheets" | "postgres";
 }
 
 interface GroupedDay {
@@ -15,9 +16,21 @@ interface GroupedDay {
   workout: Workout;
 }
 
-export function HistoryView({ spreadsheetId, sheetName }: HistoryViewProps) {
-  const { data: workouts, isLoading } = useWorkouts(spreadsheetId, sheetName);
-  const { data: exercises } = useExerciseList(spreadsheetId, sheetName);
+export function HistoryView({
+  spreadsheetId,
+  sheetName,
+  databaseMode,
+}: HistoryViewProps) {
+  const { data: workouts, isLoading } = useWorkouts(
+    spreadsheetId,
+    sheetName,
+    databaseMode
+  );
+  const { data: exercises } = useExerciseList(
+    spreadsheetId,
+    sheetName,
+    databaseMode
+  );
   const [expandedDay, setExpandedDay] = useState<string | null>(null);
   const [filterExercise, setFilterExercise] = useState<string>("");
   const [searchOpen, setSearchOpen] = useState(false);
