@@ -11,23 +11,10 @@ import { Header } from "./components/Header";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 
 type View = "log" | "analytics" | "history" | "exercises" | "settings";
-type DatabaseMode = "sheets" | "postgres";
 
 function App() {
   const { data: session, isPending } = useSession();
   const [currentView, setCurrentView] = useState<View>("log");
-  const [spreadsheetId, setSpreadsheetId] = useLocalStorage<string | null>(
-    "spreadsheetId",
-    null
-  );
-  const [sheetName, setSheetName] = useLocalStorage<string>(
-    "sheetName",
-    "Sheet1"
-  );
-  const [databaseMode, setDatabaseMode] = useLocalStorage<DatabaseMode>(
-    "databaseMode",
-    "sheets"
-  );
   const [restTimerDuration, setRestTimerDuration] = useLocalStorage<number>(
     "restTimerDuration",
     120
@@ -45,64 +32,19 @@ function App() {
     return <LoginView />;
   }
 
-  // Need to select a spreadsheet first
-  if (!spreadsheetId) {
-    return (
-      <SettingsView
-        spreadsheetId={spreadsheetId}
-        sheetName={sheetName}
-        onSpreadsheetChange={setSpreadsheetId}
-        onSheetNameChange={setSheetName}
-        databaseMode={databaseMode}
-        onDatabaseModeChange={setDatabaseMode}
-        restTimerDuration={restTimerDuration}
-        onRestTimerDurationChange={setRestTimerDuration}
-        isInitialSetup
-      />
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header
-        spreadsheetId={spreadsheetId}
-        sheetName={sheetName}
-        onSettingsClick={() => setCurrentView("settings")}
-        databaseMode={databaseMode}
-      />
+      <Header onSettingsClick={() => setCurrentView("settings")} />
 
       <main className="flex-1 pb-20">
         {currentView === "log" && (
-          <LogWorkoutView
-            spreadsheetId={spreadsheetId}
-            sheetName={sheetName}
-            databaseMode={databaseMode}
-            restTimerDuration={restTimerDuration}
-          />
+          <LogWorkoutView restTimerDuration={restTimerDuration} />
         )}
-        {currentView === "analytics" && (
-          <AnalyticsView
-            spreadsheetId={spreadsheetId}
-            sheetName={sheetName}
-            databaseMode={databaseMode}
-          />
-        )}
-        {currentView === "history" && (
-          <HistoryView
-            spreadsheetId={spreadsheetId}
-            sheetName={sheetName}
-            databaseMode={databaseMode}
-          />
-        )}
+        {currentView === "analytics" && <AnalyticsView />}
+        {currentView === "history" && <HistoryView />}
         {currentView === "exercises" && <ExercisesView />}
         {currentView === "settings" && (
           <SettingsView
-            spreadsheetId={spreadsheetId}
-            sheetName={sheetName}
-            onSpreadsheetChange={setSpreadsheetId}
-            onSheetNameChange={setSheetName}
-            databaseMode={databaseMode}
-            onDatabaseModeChange={setDatabaseMode}
             restTimerDuration={restTimerDuration}
             onRestTimerDurationChange={setRestTimerDuration}
           />

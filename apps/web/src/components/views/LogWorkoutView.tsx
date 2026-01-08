@@ -25,18 +25,10 @@ import { useWorkoutDraft } from "@/components/workout/useWorkoutDraft";
 import { formatDate, formatDateHeader, DAYS } from "@/components/workout/utils";
 
 interface LogWorkoutViewProps {
-  spreadsheetId: string;
-  sheetName: string;
-  databaseMode: "sheets" | "postgres";
   restTimerDuration: number;
 }
 
-export function LogWorkoutView({
-  spreadsheetId,
-  sheetName,
-  databaseMode,
-  restTimerDuration,
-}: LogWorkoutViewProps) {
+export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
   // State for date selection
   const [selectedDate, setSelectedDate] = useState(() =>
     formatDate(new Date())
@@ -127,12 +119,7 @@ export function LogWorkoutView({
     }, {} as Record<string, MuscleGroup>) || {};
 
   // Fetch saved workouts for the selected date
-  const { data: savedWorkout } = useWorkoutByDate(
-    selectedDate,
-    spreadsheetId,
-    sheetName,
-    databaseMode
-  );
+  const { data: savedWorkout } = useWorkoutByDate(selectedDate);
 
   // Use custom hook for draft management
   const {
@@ -146,13 +133,9 @@ export function LogWorkoutView({
   } = useWorkoutDraft();
 
   // Save workout mutation
-  const saveMutation = useAddWorkoutEntries(
-    spreadsheetId,
-    sheetName,
-    databaseMode
-  );
+  const saveMutation = useAddWorkoutEntries();
   // Delete exercise mutation
-  const deleteMutation = useDeleteExercise(databaseMode);
+  const deleteMutation = useDeleteExercise();
 
   const handleDeleteExercise = (exerciseId: string) => {
     if (confirm("Are you sure you want to delete this exercise?")) {
@@ -337,8 +320,6 @@ export function LogWorkoutView({
           onSave={handleSave}
           onReset={resetDraft}
           isSaving={saveMutation.isPending}
-          spreadsheetId={spreadsheetId}
-          sheetName={sheetName}
           showSaveButton={!supersetMode}
         />
 
@@ -370,8 +351,6 @@ export function LogWorkoutView({
               onSave={handleSave}
               onReset={resetDraft}
               isSaving={saveMutation.isPending}
-              spreadsheetId={spreadsheetId}
-              sheetName={sheetName}
               showSaveButton={false}
             />
 
@@ -420,11 +399,7 @@ export function LogWorkoutView({
                       sets={exercise.sets}
                       groupId={exercise.groupId}
                       groupType={exercise.groupType}
-                      onDelete={
-                        databaseMode === "postgres"
-                          ? () => handleDeleteExercise(exercise.id)
-                          : undefined
-                      }
+                      onDelete={() => handleDeleteExercise(exercise.id)}
                     />
                   </div>
                 ))}

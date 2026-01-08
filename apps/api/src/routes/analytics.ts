@@ -1,7 +1,6 @@
 import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
-import { fetchWorkoutLogData } from "../lib/sheets.js";
 import { requireAuth, type AuthContext } from "../lib/middleware.js";
 import type {
   BestSet,
@@ -9,17 +8,14 @@ import type {
   ExerciseStats,
   VolumeHistory,
 } from "@monke-bar/shared";
-import { getDayOfWeek, getWeekNumber, getYear } from "@monke-bar/shared";
+import { db } from "../db/index.js";
+import { workoutSessions, exercises, sets } from "../db/schema.js";
+import { eq, and, desc, sql, gte } from "drizzle-orm";
 
 export const analyticsRoutes = new Hono<{ Variables: AuthContext }>();
 
 // All routes require authentication
 analyticsRoutes.use("*", requireAuth);
-
-const sheetParamsSchema = z.object({
-  spreadsheetId: z.string().min(1),
-  sheetName: z.string().optional().default("Sheet1"),
-});
 
 /**
  * Calculate volume for a set (weight * reps)
@@ -36,55 +32,67 @@ analyticsRoutes.get(
   "/best-sets",
   zValidator(
     "query",
-    sheetParamsSchema.extend({
+    z.object({
       days: z.string().optional().default("30"),
     })
   ),
   async (c) => {
     try {
-      const user = c.get("user");
-      const { spreadsheetId, sheetName, days: daysStr } = c.req.valid("query");
+      const { days: daysStr } = c.req.valid("query");
       const days = parseInt(daysStr, 10);
-      const workouts = await fetchWorkoutLogData(
-        user.id,
-        spreadsheetId,
-        sheetName
-      );
 
-      // Get workouts from the last N days
+      // Calculate cutoff date
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - days);
       const cutoffStr = cutoffDate.toISOString().split("T")[0];
 
-      const recentWorkouts = workouts.filter((w) => w.date >= cutoffStr);
+      // Query workout sessions from the last N days with exercises and sets
+      const recentSessions = await db
+        .select()
+        .from(workoutSessions)
+        .where(gte(workoutSessions.date, cutoffStr))
+        .orderBy(desc(workoutSessions.date));
 
       const bestSets: Record<string, BestSet> = {};
 
-      recentWorkouts.forEach((workout) => {
-        workout.exercises.forEach((exercise) => {
-          const workingSets = exercise.sets.filter((s) => !s.isWarmup);
+      // Fetch exercises and sets for each session
+      for (const session of recentSessions) {
+        const sessionExercises = await db
+          .select()
+          .from(exercises)
+          .where(eq(exercises.sessionId, session.id));
 
-          workingSets.forEach((set) => {
-            const volume = calculateVolume(set.weight, set.reps);
+        for (const exercise of sessionExercises) {
+          const exerciseSets = await db
+            .select()
+            .from(sets)
+            .where(
+              and(eq(sets.exerciseId, exercise.id), eq(sets.isWarmup, false))
+            )
+            .orderBy(sets.setNumber);
+
+          for (const set of exerciseSets) {
+            const weight = parseFloat(set.weight);
+            const volume = calculateVolume(weight, set.reps);
             const current = bestSets[exercise.name];
 
             // Best by weight first, then by reps
             if (
               !current ||
-              set.weight > current.weight ||
-              (set.weight === current.weight && set.reps > current.reps)
+              weight > current.weight ||
+              (weight === current.weight && set.reps > current.reps)
             ) {
               bestSets[exercise.name] = {
                 exerciseName: exercise.name,
-                weight: set.weight,
+                weight,
                 reps: set.reps,
                 volume,
-                date: workout.date,
+                date: session.date || "",
               };
             }
-          });
-        });
-      });
+          }
+        }
+      }
 
       return c.json({
         success: true,
@@ -101,287 +109,330 @@ analyticsRoutes.get(
  * GET /api/analytics/exercise/:name/trends
  * Get trend data for a specific exercise
  */
-analyticsRoutes.get(
-  "/exercise/:name/trends",
-  zValidator("query", sheetParamsSchema),
-  async (c) => {
-    try {
-      const user = c.get("user");
-      const exerciseName = decodeURIComponent(c.req.param("name"));
-      const { spreadsheetId, sheetName } = c.req.valid("query");
-      const workouts = await fetchWorkoutLogData(
-        user.id,
-        spreadsheetId,
-        sheetName
-      );
+analyticsRoutes.get("/exercise/:name/trends", async (c) => {
+  try {
+    const exerciseName = decodeURIComponent(c.req.param("name"));
 
-      const trends: TrendDataPoint[] = [];
+    // Get all sessions that have this exercise
+    const allSessions = await db
+      .select()
+      .from(workoutSessions)
+      .orderBy(workoutSessions.date);
 
-      workouts.forEach((workout) => {
-        const exercise = workout.exercises.find(
-          (e) => e.name.toLowerCase() === exerciseName.toLowerCase()
+    const trends: TrendDataPoint[] = [];
+
+    for (const session of allSessions) {
+      const sessionExercises = await db
+        .select()
+        .from(exercises)
+        .where(
+          and(
+            eq(exercises.sessionId, session.id),
+            sql`LOWER(${exercises.name}) = LOWER(${exerciseName})`
+          )
         );
 
-        if (exercise) {
-          const workingSets = exercise.sets.filter((s) => !s.isWarmup);
+      if (sessionExercises.length > 0) {
+        const exercise = sessionExercises[0];
 
-          if (workingSets.length > 0) {
-            const maxWeight = Math.max(...workingSets.map((s) => s.weight));
-            const totalVolume = workingSets.reduce(
-              (acc, s) => acc + calculateVolume(s.weight, s.reps),
-              0
-            );
-            const totalReps = workingSets.reduce((acc, s) => acc + s.reps, 0);
-            const averageWeight = totalVolume / totalReps;
+        const workingSets = await db
+          .select()
+          .from(sets)
+          .where(
+            and(eq(sets.exerciseId, exercise.id), eq(sets.isWarmup, false))
+          );
 
-            trends.push({
-              date: workout.date,
-              maxWeight,
-              totalVolume,
-              totalReps,
-              averageWeight,
-            });
-          }
+        if (workingSets.length > 0) {
+          const weights = workingSets.map((s) => parseFloat(s.weight));
+          const maxWeight = Math.max(...weights);
+          let totalVolume = 0;
+          let totalReps = 0;
+
+          workingSets.forEach((s) => {
+            const weight = parseFloat(s.weight);
+            totalVolume += calculateVolume(weight, s.reps);
+            totalReps += s.reps;
+          });
+
+          const averageWeight = totalReps > 0 ? totalVolume / totalReps : 0;
+
+          trends.push({
+            date: session.date || "",
+            maxWeight,
+            totalVolume,
+            totalReps,
+            averageWeight,
+          });
         }
-      });
-
-      return c.json({
-        success: true,
-        data: {
-          exerciseName,
-          trends,
-        },
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return c.json({ success: false, error: message }, 500);
+      }
     }
+
+    return c.json({
+      success: true,
+      data: {
+        exerciseName,
+        trends,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return c.json({ success: false, error: message }, 500);
   }
-);
+});
 
 /**
  * GET /api/analytics/exercise/:name/stats
  * Get comprehensive stats for a specific exercise
  */
-analyticsRoutes.get(
-  "/exercise/:name/stats",
-  zValidator("query", sheetParamsSchema),
-  async (c) => {
-    try {
-      const user = c.get("user");
-      const exerciseName = decodeURIComponent(c.req.param("name"));
-      const { spreadsheetId, sheetName } = c.req.valid("query");
-      const workouts = await fetchWorkoutLogData(
-        user.id,
-        spreadsheetId,
-        sheetName
-      );
+analyticsRoutes.get("/exercise/:name/stats", async (c) => {
+  try {
+    const exerciseName = decodeURIComponent(c.req.param("name"));
 
-      let currentPR: BestSet | null = null;
-      let last30DaysBest: BestSet | null = null;
-      const trends: TrendDataPoint[] = [];
-      let totalSessions = 0;
+    let currentPR: BestSet | null = null;
+    let last30DaysBest: BestSet | null = null;
+    const trends: TrendDataPoint[] = [];
+    let totalSessions = 0;
 
-      // Get the last 30 days
-      const cutoffDate = new Date();
-      cutoffDate.setDate(cutoffDate.getDate() - 30);
-      const cutoffStr = cutoffDate.toISOString().split("T")[0];
-      const recentWorkouts = workouts.filter((w) => w.date >= cutoffStr);
+    // Get the last 30 days cutoff
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - 30);
+    const cutoffStr = cutoffDate.toISOString().split("T")[0];
 
-      workouts.forEach((workout) => {
-        const exercise = workout.exercises.find(
-          (e) => e.name.toLowerCase() === exerciseName.toLowerCase()
+    // Get all sessions
+    const allSessions = await db
+      .select()
+      .from(workoutSessions)
+      .orderBy(workoutSessions.date);
+
+    const recentSessions = allSessions.filter(
+      (s) => (s.date || "") >= cutoffStr
+    );
+
+    for (const session of allSessions) {
+      const sessionExercises = await db
+        .select()
+        .from(exercises)
+        .where(
+          and(
+            eq(exercises.sessionId, session.id),
+            sql`LOWER(${exercises.name}) = LOWER(${exerciseName})`
+          )
         );
 
-        if (exercise) {
-          totalSessions++;
-          const workingSets = exercise.sets.filter((s) => !s.isWarmup);
+      if (sessionExercises.length > 0) {
+        totalSessions++;
+        const exercise = sessionExercises[0];
 
-          workingSets.forEach((set) => {
-            const volume = calculateVolume(set.weight, set.reps);
-            const setData: BestSet = {
-              exerciseName: exercise.name,
-              weight: set.weight,
-              reps: set.reps,
-              volume,
-              date: workout.date,
-            };
+        const workingSets = await db
+          .select()
+          .from(sets)
+          .where(
+            and(eq(sets.exerciseId, exercise.id), eq(sets.isWarmup, false))
+          );
 
-            // All-time PR
-            if (
-              !currentPR ||
-              set.weight > currentPR.weight ||
-              (set.weight === currentPR.weight && set.reps > currentPR.reps)
-            ) {
-              currentPR = setData;
-            }
-          });
+        // Calculate all-time PR
+        for (const set of workingSets) {
+          const weight = parseFloat(set.weight);
+          const volume = calculateVolume(weight, set.reps);
+          const setData: BestSet = {
+            exerciseName: exercise.name,
+            weight,
+            reps: set.reps,
+            volume,
+            date: session.date || "",
+          };
 
-          // Calculate trend data point
-          if (workingSets.length > 0) {
-            const maxWeight = Math.max(...workingSets.map((s) => s.weight));
-            const totalVolume = workingSets.reduce(
-              (acc, s) => acc + calculateVolume(s.weight, s.reps),
-              0
-            );
-            const totalReps = workingSets.reduce((acc, s) => acc + s.reps, 0);
-
-            trends.push({
-              date: workout.date,
-              maxWeight,
-              totalVolume,
-              totalReps,
-              averageWeight: totalReps > 0 ? totalVolume / totalReps : 0,
-            });
+          if (
+            !currentPR ||
+            weight > currentPR.weight ||
+            (weight === currentPR.weight && set.reps > currentPR.reps)
+          ) {
+            currentPR = setData;
           }
         }
-      });
 
-      // Find last 30 days best
-      recentWorkouts.forEach((workout) => {
-        const exercise = workout.exercises.find(
-          (e) => e.name.toLowerCase() === exerciseName.toLowerCase()
-        );
+        // Calculate trend data point
+        if (workingSets.length > 0) {
+          const weights = workingSets.map((s) => parseFloat(s.weight));
+          const maxWeight = Math.max(...weights);
+          let totalVolume = 0;
+          let totalReps = 0;
 
-        if (exercise) {
-          const workingSets = exercise.sets.filter((s) => !s.isWarmup);
-          workingSets.forEach((set) => {
-            if (
-              !last30DaysBest ||
-              set.weight > last30DaysBest.weight ||
-              (set.weight === last30DaysBest.weight &&
-                set.reps > last30DaysBest.reps)
-            ) {
-              last30DaysBest = {
-                exerciseName: exercise.name,
-                weight: set.weight,
-                reps: set.reps,
-                volume: calculateVolume(set.weight, set.reps),
-                date: workout.date,
-              };
-            }
+          workingSets.forEach((s) => {
+            const weight = parseFloat(s.weight);
+            totalVolume += calculateVolume(weight, s.reps);
+            totalReps += s.reps;
+          });
+
+          trends.push({
+            date: session.date || "",
+            maxWeight,
+            totalVolume,
+            totalReps,
+            averageWeight: totalReps > 0 ? totalVolume / totalReps : 0,
           });
         }
-      });
-
-      const stats: ExerciseStats = {
-        exerciseName,
-        currentPR: currentPR || {
-          exerciseName,
-          weight: 0,
-          reps: 0,
-          volume: 0,
-          date: "",
-        },
-        last30DaysBest,
-        trend: trends,
-        totalSessions,
-      };
-
-      return c.json({
-        success: true,
-        data: stats,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return c.json({ success: false, error: message }, 500);
+      }
     }
+
+    // Find last 30 days best
+    for (const session of recentSessions) {
+      const sessionExercises = await db
+        .select()
+        .from(exercises)
+        .where(
+          and(
+            eq(exercises.sessionId, session.id),
+            sql`LOWER(${exercises.name}) = LOWER(${exerciseName})`
+          )
+        );
+
+      if (sessionExercises.length > 0) {
+        const exercise = sessionExercises[0];
+        const workingSets = await db
+          .select()
+          .from(sets)
+          .where(
+            and(eq(sets.exerciseId, exercise.id), eq(sets.isWarmup, false))
+          );
+
+        for (const set of workingSets) {
+          const weight = parseFloat(set.weight);
+          if (
+            !last30DaysBest ||
+            weight > last30DaysBest.weight ||
+            (weight === last30DaysBest.weight && set.reps > last30DaysBest.reps)
+          ) {
+            last30DaysBest = {
+              exerciseName: exercise.name,
+              weight,
+              reps: set.reps,
+              volume: calculateVolume(weight, set.reps),
+              date: session.date || "",
+            };
+          }
+        }
+      }
+    }
+
+    const stats: ExerciseStats = {
+      exerciseName,
+      currentPR: currentPR || {
+        exerciseName,
+        weight: 0,
+        reps: 0,
+        volume: 0,
+        date: "",
+      },
+      last30DaysBest,
+      trend: trends,
+      totalSessions,
+    };
+
+    return c.json({
+      success: true,
+      data: stats,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return c.json({ success: false, error: message }, 500);
   }
-);
+});
 
 /**
  * GET /api/analytics/volume-history
  * Get volume history across all workouts
  */
-analyticsRoutes.get(
-  "/volume-history",
-  zValidator("query", sheetParamsSchema),
-  async (c) => {
-    try {
-      const user = c.get("user");
-      const { spreadsheetId, sheetName } = c.req.valid("query");
-      const workouts = await fetchWorkoutLogData(
-        user.id,
-        spreadsheetId,
-        sheetName
-      );
+analyticsRoutes.get("/volume-history", async (c) => {
+  try {
+    const allSessions = await db
+      .select()
+      .from(workoutSessions)
+      .orderBy(workoutSessions.date);
 
-      const volumeHistory: VolumeHistory[] = workouts.map((workout) => {
-        let totalVolume = 0;
+    const volumeHistory: VolumeHistory[] = [];
 
-        workout.exercises.forEach((exercise) => {
-          const workingSets = exercise.sets.filter((s) => !s.isWarmup);
-          totalVolume += workingSets.reduce(
-            (acc, s) => acc + calculateVolume(s.weight, s.reps),
-            0
+    for (const session of allSessions) {
+      const sessionExercises = await db
+        .select()
+        .from(exercises)
+        .where(eq(exercises.sessionId, session.id));
+
+      let totalVolume = 0;
+
+      for (const exercise of sessionExercises) {
+        const workingSets = await db
+          .select()
+          .from(sets)
+          .where(
+            and(eq(sets.exerciseId, exercise.id), eq(sets.isWarmup, false))
           );
-        });
 
-        return {
-          date: workout.date,
-          totalVolume,
-          exerciseCount: workout.exercises.length,
-        };
-      });
+        totalVolume += workingSets.reduce((acc, s) => {
+          const weight = parseFloat(s.weight);
+          return acc + calculateVolume(weight, s.reps);
+        }, 0);
+      }
 
-      return c.json({
-        success: true,
-        data: volumeHistory,
+      volumeHistory.push({
+        date: session.date || "",
+        totalVolume,
+        exerciseCount: sessionExercises.length,
       });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return c.json({ success: false, error: message }, 500);
     }
+
+    return c.json({
+      success: true,
+      data: volumeHistory,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return c.json({ success: false, error: message }, 500);
   }
-);
+});
 
 /**
  * GET /api/analytics/summary
  * Get overall workout summary
  */
-analyticsRoutes.get(
-  "/summary",
-  zValidator("query", sheetParamsSchema),
-  async (c) => {
-    try {
-      const user = c.get("user");
-      const { spreadsheetId, sheetName } = c.req.valid("query");
-      const workouts = await fetchWorkoutLogData(
-        user.id,
-        spreadsheetId,
-        sheetName
-      );
+analyticsRoutes.get("/summary", async (c) => {
+  try {
+    const allSessions = await db.select().from(workoutSessions);
+    const allExercises = await db.select().from(exercises);
 
-      const exerciseSet = new Set<string>();
-      let totalSets = 0;
-      let totalVolume = 0;
+    const exerciseSet = new Set<string>();
+    let totalSets = 0;
+    let totalVolume = 0;
 
-      workouts.forEach((workout) => {
-        workout.exercises.forEach((exercise) => {
-          exerciseSet.add(exercise.name);
-          const workingSets = exercise.sets.filter((s) => !s.isWarmup);
-          totalSets += workingSets.length;
-          totalVolume += workingSets.reduce(
-            (acc, s) => acc + calculateVolume(s.weight, s.reps),
-            0
-          );
-        });
-      });
+    for (const exercise of allExercises) {
+      exerciseSet.add(exercise.name);
 
-      return c.json({
-        success: true,
-        data: {
-          totalWorkouts: workouts.length,
-          totalSessions: workouts.length,
-          totalSets,
-          totalVolume,
-          uniqueExercises: exerciseSet.size,
-          exerciseList: Array.from(exerciseSet).sort(),
-        },
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Unknown error";
-      return c.json({ success: false, error: message }, 500);
+      const workingSets = await db
+        .select()
+        .from(sets)
+        .where(and(eq(sets.exerciseId, exercise.id), eq(sets.isWarmup, false)));
+
+      totalSets += workingSets.length;
+      totalVolume += workingSets.reduce((acc, s) => {
+        const weight = parseFloat(s.weight);
+        return acc + calculateVolume(weight, s.reps);
+      }, 0);
     }
+
+    return c.json({
+      success: true,
+      data: {
+        totalWorkouts: allSessions.length,
+        totalSessions: allSessions.length,
+        totalSets,
+        totalVolume,
+        uniqueExercises: exerciseSet.size,
+        exerciseList: Array.from(exerciseSet).sort(),
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return c.json({ success: false, error: message }, 500);
   }
-);
+});
+

@@ -21,40 +21,12 @@ import {
 } from "recharts";
 import { Trophy, TrendingUp, Dumbbell, ChevronDown } from "lucide-react";
 
-interface AnalyticsViewProps {
-  spreadsheetId: string;
-  sheetName: string;
-  databaseMode: "sheets" | "postgres";
-}
-
-export function AnalyticsView({
-  spreadsheetId,
-  sheetName,
-  databaseMode,
-}: AnalyticsViewProps) {
-  const { data: bestSets, isLoading: loadingBestSets } = useBestSets(
-    spreadsheetId,
-    sheetName,
-    30,
-    databaseMode
-  );
-  const { data: summary, isLoading: loadingSummary } = useSummary(
-    spreadsheetId,
-    sheetName,
-    databaseMode
-  );
-  const { data: volumeHistory } = useVolumeHistory(
-    spreadsheetId,
-    sheetName,
-    databaseMode
-  );
+export function AnalyticsView() {
+  const { data: bestSets, isLoading: loadingBestSets } = useBestSets(30);
+  const { data: summary, isLoading: loadingSummary } = useSummary();
+  const { data: volumeHistory } = useVolumeHistory();
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
-  const { data: exerciseStats } = useExerciseStats(
-    selectedExercise || "",
-    spreadsheetId,
-    sheetName,
-    databaseMode
-  );
+  const { data: exerciseStats } = useExerciseStats(selectedExercise || "");
 
   if (loadingBestSets || loadingSummary) {
     return (
@@ -73,11 +45,12 @@ export function AnalyticsView({
           // Handle different data formats from sheets vs postgres
           if ("week" in item && "totalVolume" in item) {
             // Postgres format: { week: "2026-W2", totalVolume: 12345 }
-            const [year, week] = item.week.split("-W");
+            const week = item.week as string;
+            const [year, weekNum] = week.split("-W");
             return {
-              week: `W${week}`,
+              week: `W${weekNum}`,
               year: parseInt(year),
-              weekNumber: parseInt(week),
+              weekNumber: parseInt(weekNum),
               volume: item.totalVolume,
             };
           } else {

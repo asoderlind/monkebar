@@ -117,20 +117,6 @@ export const sets = pgTable("sets", {
 });
 
 // ============================================================================
-// Sync Log - Track Google Sheets synchronization
-// ============================================================================
-
-export const syncLogs = pgTable("sync_logs", {
-  id: serial("id").primaryKey(),
-  spreadsheetId: varchar("spreadsheet_id", { length: 255 }).notNull(),
-  status: varchar("status", { length: 50 }).notNull(), // 'success', 'error', 'in_progress'
-  rowsProcessed: integer("rows_processed").default(0),
-  error: text("error"),
-  startedAt: timestamp("started_at").defaultNow().notNull(),
-  completedAt: timestamp("completed_at"),
-});
-
-// ============================================================================
 // Exercise Master List - Normalized exercise names
 // ============================================================================
 
@@ -177,9 +163,6 @@ export type NewExercise = typeof exercises.$inferInsert;
 
 export type Set = typeof sets.$inferSelect;
 export type NewSet = typeof sets.$inferInsert;
-
-export type SyncLog = typeof syncLogs.$inferSelect;
-export type NewSyncLog = typeof syncLogs.$inferInsert;
 
 export type ExerciseMaster = typeof exerciseMaster.$inferSelect;
 export type NewExerciseMaster = typeof exerciseMaster.$inferInsert;
