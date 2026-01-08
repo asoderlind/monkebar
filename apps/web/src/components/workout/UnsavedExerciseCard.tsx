@@ -193,6 +193,14 @@ export function UnsavedExerciseCard({
                 </div>
               )}
             </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onReset}
+              disabled={isSaving}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
           </div>
         </CardHeader>
 
@@ -350,19 +358,10 @@ export function UnsavedExerciseCard({
             })}
           </div>
 
-          {/* Save and Reset buttons */}
-          <div className="flex gap-2 mt-4">
+          {/* Save button */}
+          <div className="mt-4">
             <Button
-              variant="outline"
-              className="flex-1"
-              onClick={onReset}
-              disabled={isSaving}
-            >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Reset
-            </Button>
-            <Button
-              className="flex-1"
+              className="w-full"
               onClick={onSave}
               disabled={isSaving || !exerciseName.trim()}
             >
