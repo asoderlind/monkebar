@@ -343,50 +343,6 @@ export interface WorkoutLogEntry {
 }
 
 /**
- * Append workout entries to the log sheet
- */
-export async function appendWorkoutEntries(
-  userId: string,
-  spreadsheetId: string,
-  sheetName: string,
-  entries: WorkoutLogEntry[]
-): Promise<number> {
-  const sheets = await getSheetsClient(userId);
-
-  const rows = entries.map((entry) => [
-    entry.date,
-    entry.day,
-    entry.exercise,
-    entry.groupId || "", // Group column (e.g., "SS1" for superset)
-    entry.warmup ? formatSetValue(entry.warmup.weight, entry.warmup.reps) : "",
-    entry.sets[0]
-      ? formatSetValue(entry.sets[0].weight, entry.sets[0].reps)
-      : "",
-    entry.sets[1]
-      ? formatSetValue(entry.sets[1].weight, entry.sets[1].reps)
-      : "",
-    entry.sets[2]
-      ? formatSetValue(entry.sets[2].weight, entry.sets[2].reps)
-      : "",
-    entry.sets[3]
-      ? formatSetValue(entry.sets[3].weight, entry.sets[3].reps)
-      : "",
-  ]);
-
-  await sheets.spreadsheets.values.append({
-    spreadsheetId,
-    range: `${sheetName}!A:I`,
-    valueInputOption: "USER_ENTERED",
-    insertDataOption: "INSERT_ROWS",
-    requestBody: {
-      values: rows,
-    },
-  });
-
-  return rows.length;
-}
-
-/**
  * Parse header row to determine column indices
  * Supports both formats:
  * - New format: Date | Day | Exercise | Group | Warmup | Set1 | Set2 | Set3 | Set4
@@ -409,7 +365,6 @@ function parseHeaderRow(headerRow: string[]): ColumnIndices {
 
   // Find column indices by header name
   const dateIdx = headers.findIndex((h) => h === "date");
-  const dayIdx = headers.findIndex((h) => h === "day");
   const exerciseIdx = headers.findIndex((h) => h === "exercise");
   const groupIdx = headers.findIndex((h) => h === "group");
   const warmupIdx = headers.findIndex((h) => h === "warmup");
@@ -418,14 +373,23 @@ function parseHeaderRow(headerRow: string[]): ColumnIndices {
   const set3Idx = headers.findIndex((h) => h === "set3");
   const set4Idx = headers.findIndex((h) => h === "set4");
 
-  // If we found specific headers, use them
-  if (warmupIdx !== -1) {
+  // Validate that essential columns (Date, Exercise, Warmup) are found before using dynamic indices
+  // Day and Group columns have fallbacks, so they're not essential for parsing
+  const hasEssentialColumns = dateIdx !== -1 && exerciseIdx !== -1 && warmupIdx !== -1;
+
+  if (hasEssentialColumns) {
+    // Use detected indices
+    // For day column, default to index 1 if not found (it's between date and exercise)
+    const dayIdx = headers.findIndex((h) => h === "day");
+
     return {
-      date: dateIdx !== -1 ? dateIdx : 0,
+      date: dateIdx,
       day: dayIdx !== -1 ? dayIdx : 1,
-      exercise: exerciseIdx !== -1 ? exerciseIdx : 2,
+      exercise: exerciseIdx,
       group: groupIdx !== -1 ? groupIdx : null,
       warmup: warmupIdx,
+      // Use detected set indices if found, otherwise fall back to sequential positions
+      // But only if all set columns were found together to avoid partial mismatches
       set1: set1Idx !== -1 ? set1Idx : warmupIdx + 1,
       set2: set2Idx !== -1 ? set2Idx : warmupIdx + 2,
       set3: set3Idx !== -1 ? set3Idx : warmupIdx + 3,
@@ -433,7 +397,8 @@ function parseHeaderRow(headerRow: string[]): ColumnIndices {
     };
   }
 
-  // Default to new format if headers can't be parsed
+  // Default to new format if essential headers can't be found
+  // This handles sheets that may have different/no headers
   return {
     date: 0,
     day: 1,
@@ -445,6 +410,93 @@ function parseHeaderRow(headerRow: string[]): ColumnIndices {
     set3: 7,
     set4: 8,
   };
+}
+
+/**
+ * Append workout entries to the log sheet
+ * Detects sheet format and writes in the appropriate format
+ */
+export async function appendWorkoutEntries(
+  userId: string,
+  spreadsheetId: string,
+  sheetName: string,
+  entries: WorkoutLogEntry[]
+): Promise<number> {
+  const sheets = await getSheetsClient(userId);
+
+  // First, read the header row to detect the sheet format
+  const headerResponse = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${sheetName}!A1:I1`,
+  });
+
+  const headerRow = (headerResponse.data.values?.[0] as string[]) || [];
+  const cols = parseHeaderRow(headerRow);
+
+  // Determine the range based on whether the Group column exists
+  const hasGroupColumn = cols.group !== null;
+  const rangeEnd = hasGroupColumn ? "I" : "H";
+
+  const rows = entries.map((entry) => {
+    if (hasGroupColumn) {
+      // New format with Group column
+      return [
+        entry.date,
+        entry.day,
+        entry.exercise,
+        entry.groupId || "", // Group column
+        entry.warmup
+          ? formatSetValue(entry.warmup.weight, entry.warmup.reps)
+          : "",
+        entry.sets[0]
+          ? formatSetValue(entry.sets[0].weight, entry.sets[0].reps)
+          : "",
+        entry.sets[1]
+          ? formatSetValue(entry.sets[1].weight, entry.sets[1].reps)
+          : "",
+        entry.sets[2]
+          ? formatSetValue(entry.sets[2].weight, entry.sets[2].reps)
+          : "",
+        entry.sets[3]
+          ? formatSetValue(entry.sets[3].weight, entry.sets[3].reps)
+          : "",
+      ];
+    } else {
+      // Legacy format without Group column
+      return [
+        entry.date,
+        entry.day,
+        entry.exercise,
+        entry.warmup
+          ? formatSetValue(entry.warmup.weight, entry.warmup.reps)
+          : "",
+        entry.sets[0]
+          ? formatSetValue(entry.sets[0].weight, entry.sets[0].reps)
+          : "",
+        entry.sets[1]
+          ? formatSetValue(entry.sets[1].weight, entry.sets[1].reps)
+          : "",
+        entry.sets[2]
+          ? formatSetValue(entry.sets[2].weight, entry.sets[2].reps)
+          : "",
+        entry.sets[3]
+          ? formatSetValue(entry.sets[3].weight, entry.sets[3].reps)
+          : "",
+      ];
+    }
+  });
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId,
+    range: `${sheetName}!A:${rangeEnd}`,
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: {
+      values: rows,
+    },
+  });
+
+  return rows.length;
 }
 
 /**
