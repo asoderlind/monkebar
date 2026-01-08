@@ -1,12 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   ChevronLeft,
   ChevronRight,
-  FileCheck,
   Layers,
   Loader2,
   Save,
+  Timer,
+  Pause,
+  RotateCcw,
 } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAddWorkoutEntries, useWorkoutByDate } from "@/hooks/useWorkouts";
 import { useExercises } from "@/hooks/useExercises";
@@ -20,11 +23,13 @@ import { formatDate, formatDateHeader, DAYS } from "@/components/workout/utils";
 interface LogWorkoutViewProps {
   spreadsheetId: string;
   sheetName: string;
+  restTimerDuration: number;
 }
 
 export function LogWorkoutView({
   spreadsheetId,
   sheetName,
+  restTimerDuration,
 }: LogWorkoutViewProps) {
   // State for date selection
   const [selectedDate, setSelectedDate] = useState(() =>
@@ -50,6 +55,57 @@ export function LogWorkoutView({
     setSelectedDate(formatDate(currentDate));
     const dayIndex = currentDate.getDay();
     setSelectedDay(DAYS[dayIndex === 0 ? 6 : dayIndex - 1]);
+  };
+
+  // Rest timer state
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
+  const [timerActive, setTimerActive] = useState(false);
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (!timerActive || remainingSeconds <= 0) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setRemainingSeconds((prev) => {
+        if (prev <= 1) {
+          setTimerActive(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timerActive, remainingSeconds]);
+
+  // Timer controls
+  const startTimer = (duration: number) => {
+    setRemainingSeconds(duration);
+    setTimerActive(true);
+  };
+
+  const pauseTimer = () => {
+    setTimerActive(false);
+  };
+
+  const resumeTimer = () => {
+    if (remainingSeconds > 0) {
+      setTimerActive(true);
+    }
+  };
+
+  const resetTimer = () => {
+    setRemainingSeconds(0);
+    setTimerActive(false);
+  };
+
+  // Format timer display as MM:SS
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
   // Fetch exercises from database to get muscle groups
@@ -80,7 +136,6 @@ export function LogWorkoutView({
     updateExercise2,
     toggleSupersetMode,
     resetDraft,
-    hasDraftContent,
   } = useWorkoutDraft();
 
   // Save workout mutation
@@ -187,17 +242,35 @@ export function LogWorkoutView({
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          {hasDraftContent && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <FileCheck className="h-4 w-4" />
-              <span>Draft saved</span>
-            </div>
-          )}
           <Button variant="ghost" size="icon" onClick={handleNextDay}>
             <ChevronRight className="h-6 w-6" />
           </Button>
         </div>
       </div>
+
+      {/* Rest Timer */}
+      {remainingSeconds > 0 && (
+        <div className="flex items-center justify-center gap-3 p-4 bg-card border rounded-lg">
+          <Timer className="h-5 w-5 text-muted-foreground" />
+          <span className="text-2xl font-mono font-bold">
+            {formatTimer(remainingSeconds)}
+          </span>
+          <div className="flex gap-2">
+            {timerActive ? (
+              <Button variant="outline" size="sm" onClick={pauseTimer}>
+                <Pause className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={resumeTimer}>
+                <Timer className="h-4 w-4" />
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={resetTimer}>
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Superset Mode Toggle */}
       <div className="flex items-center justify-between py-2">
@@ -231,13 +304,18 @@ export function LogWorkoutView({
           onWarmupChange={(warmup) =>
             updateExercise((prev) => ({ ...prev, warmup }))
           }
-          onSetChange={(index, set) =>
+          onSetChange={(index, set) => {
             updateExercise((prev) => {
               const newSets = [...prev.sets];
               newSets[index] = set;
               return { ...prev, sets: newSets };
-            })
-          }
+            });
+            // Start rest timer after completing a working set
+            if (set.reps > 0) {
+              startTimer(restTimerDuration);
+              toast.success("Draft saved");
+            }
+          }}
           onSave={handleSave}
           onReset={resetDraft}
           isSaving={saveMutation.isPending}
@@ -259,13 +337,18 @@ export function LogWorkoutView({
               onWarmupChange={(warmup) =>
                 updateExercise2((prev) => ({ ...prev, warmup }))
               }
-              onSetChange={(index, set) =>
+              onSetChange={(index, set) => {
                 updateExercise2((prev) => {
                   const newSets = [...prev.sets];
                   newSets[index] = set;
                   return { ...prev, sets: newSets };
-                })
-              }
+                });
+                // Start rest timer after completing a working set
+                if (set.reps > 0) {
+                  startTimer(restTimerDuration);
+                  toast.success("Draft saved");
+                }
+              }}
               onSave={handleSave}
               onReset={resetDraft}
               isSaving={saveMutation.isPending}
