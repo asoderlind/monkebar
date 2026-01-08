@@ -387,8 +387,70 @@ export async function appendWorkoutEntries(
 }
 
 /**
+ * Parse header row to determine column indices
+ * Supports both formats:
+ * - New format: Date | Day | Exercise | Group | Warmup | Set1 | Set2 | Set3 | Set4
+ * - Legacy format: Date | Day | Exercise | Warmup | Set1 | Set2 | Set3 | Set4
+ */
+interface ColumnIndices {
+  date: number;
+  day: number;
+  exercise: number;
+  group: number | null; // null if Group column doesn't exist
+  warmup: number;
+  set1: number;
+  set2: number;
+  set3: number;
+  set4: number;
+}
+
+function parseHeaderRow(headerRow: string[]): ColumnIndices {
+  const headers = headerRow.map((h) => h?.toString().toLowerCase().trim() || "");
+
+  // Find column indices by header name
+  const dateIdx = headers.findIndex((h) => h === "date");
+  const dayIdx = headers.findIndex((h) => h === "day");
+  const exerciseIdx = headers.findIndex((h) => h === "exercise");
+  const groupIdx = headers.findIndex((h) => h === "group");
+  const warmupIdx = headers.findIndex((h) => h === "warmup");
+  const set1Idx = headers.findIndex((h) => h === "set1");
+  const set2Idx = headers.findIndex((h) => h === "set2");
+  const set3Idx = headers.findIndex((h) => h === "set3");
+  const set4Idx = headers.findIndex((h) => h === "set4");
+
+  // If we found specific headers, use them
+  if (warmupIdx !== -1) {
+    return {
+      date: dateIdx !== -1 ? dateIdx : 0,
+      day: dayIdx !== -1 ? dayIdx : 1,
+      exercise: exerciseIdx !== -1 ? exerciseIdx : 2,
+      group: groupIdx !== -1 ? groupIdx : null,
+      warmup: warmupIdx,
+      set1: set1Idx !== -1 ? set1Idx : warmupIdx + 1,
+      set2: set2Idx !== -1 ? set2Idx : warmupIdx + 2,
+      set3: set3Idx !== -1 ? set3Idx : warmupIdx + 3,
+      set4: set4Idx !== -1 ? set4Idx : warmupIdx + 4,
+    };
+  }
+
+  // Default to new format if headers can't be parsed
+  return {
+    date: 0,
+    day: 1,
+    exercise: 2,
+    group: 3,
+    warmup: 4,
+    set1: 5,
+    set2: 6,
+    set3: 7,
+    set4: 8,
+  };
+}
+
+/**
  * Fetch workout log data (normalized format)
  * Sheet format: Date | Day | Exercise | Group | Warmup | Set1 | Set2 | Set3 | Set4
+ * Also supports legacy format without Group column
  * Returns flat array of Workout objects, one per date, sorted by date ascending
  */
 export async function fetchWorkoutLogData(
@@ -408,15 +470,19 @@ export async function fetchWorkoutLogData(
     return []; // Need header + data
   }
 
+  // Parse header row to get column indices
+  const cols = parseHeaderRow(rows[0] as string[]);
+
   // Group exercises by date
   const workoutMap = new Map<string, Exercise[]>();
 
   // Skip header row
   for (let i = 1; i < rows.length; i++) {
     const row = rows[i];
-    const dateStr = row[0]?.toString();
-    const exerciseName = row[2]?.toString();
-    const groupId = row[3]?.toString() || undefined;
+    const dateStr = row[cols.date]?.toString();
+    const exerciseName = row[cols.exercise]?.toString();
+    const groupId =
+      cols.group !== null ? row[cols.group]?.toString() || undefined : undefined;
 
     if (!dateStr || !exerciseName) continue;
 
@@ -426,15 +492,16 @@ export async function fetchWorkoutLogData(
 
     const sets: WorkoutSet[] = [];
 
-    // Warmup (column E, index 4)
-    const warmup = parseSetValue(row[4]?.toString());
+    // Warmup
+    const warmup = parseSetValue(row[cols.warmup]?.toString());
     if (warmup) {
       sets.push({ ...warmup, isWarmup: true, setNumber: 0 });
     }
 
-    // Sets 1-4 (columns F-I, index 5-8)
+    // Sets 1-4
+    const setIndices = [cols.set1, cols.set2, cols.set3, cols.set4];
     for (let s = 0; s < 4; s++) {
-      const setValue = parseSetValue(row[5 + s]?.toString());
+      const setValue = parseSetValue(row[setIndices[s]]?.toString());
       if (setValue) {
         sets.push({ ...setValue, isWarmup: false, setNumber: s + 1 });
       }
