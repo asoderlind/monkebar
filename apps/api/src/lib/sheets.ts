@@ -357,7 +357,6 @@ export async function appendWorkoutEntries(
     entry.date,
     entry.day,
     entry.exercise,
-    entry.groupId || "", // Group column (e.g., "SS1" for superset)
     entry.warmup ? formatSetValue(entry.warmup.weight, entry.warmup.reps) : "",
     entry.sets[0]
       ? formatSetValue(entry.sets[0].weight, entry.sets[0].reps)
@@ -375,7 +374,7 @@ export async function appendWorkoutEntries(
 
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${sheetName}!A:I`,
+    range: `${sheetName}!A:H`,
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",
     requestBody: {
@@ -388,7 +387,7 @@ export async function appendWorkoutEntries(
 
 /**
  * Fetch workout log data (normalized format)
- * Sheet format: Date | Day | Exercise | Group | Warmup | Set1 | Set2 | Set3 | Set4
+ * Sheet format: Date | Day | Exercise | Warmup | Set1 | Set2 | Set3 | Set4
  * Returns flat array of Workout objects, one per date, sorted by date ascending
  */
 export async function fetchWorkoutLogData(
@@ -400,7 +399,7 @@ export async function fetchWorkoutLogData(
 
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `${sheetName}!A:I`,
+    range: `${sheetName}!A:H`,
   });
 
   const rows = response.data.values || [];
@@ -416,7 +415,6 @@ export async function fetchWorkoutLogData(
     const row = rows[i];
     const dateStr = row[0]?.toString();
     const exerciseName = row[2]?.toString();
-    const groupId = row[3]?.toString() || undefined;
 
     if (!dateStr || !exerciseName) continue;
 
@@ -426,15 +424,15 @@ export async function fetchWorkoutLogData(
 
     const sets: WorkoutSet[] = [];
 
-    // Warmup (column E, index 4)
-    const warmup = parseSetValue(row[4]?.toString());
+    // Warmup (column D, index 3)
+    const warmup = parseSetValue(row[3]?.toString());
     if (warmup) {
       sets.push({ ...warmup, isWarmup: true, setNumber: 0 });
     }
 
-    // Sets 1-4 (columns F-I, index 5-8)
+    // Sets 1-4 (columns E-H, index 4-7)
     for (let s = 0; s < 4; s++) {
-      const setValue = parseSetValue(row[5 + s]?.toString());
+      const setValue = parseSetValue(row[4 + s]?.toString());
       if (setValue) {
         sets.push({ ...setValue, isWarmup: false, setNumber: s + 1 });
       }
@@ -444,8 +442,6 @@ export async function fetchWorkoutLogData(
       id: `${i}-${dateStr}-${exerciseName}`,
       name: exerciseName,
       sets,
-      groupId: groupId && groupId.trim() !== "" ? groupId : undefined,
-      groupType: groupId && groupId.trim() !== "" ? "superset" : undefined,
     });
   }
 

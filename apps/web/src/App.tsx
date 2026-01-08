@@ -28,6 +28,10 @@ function App() {
     "databaseMode",
     "sheets"
   );
+  const [restTimerDuration, setRestTimerDuration] = useLocalStorage<number>(
+    "restTimerDuration",
+    120
+  );
 
   if (isPending) {
     return (
@@ -51,6 +55,8 @@ function App() {
         onSheetNameChange={setSheetName}
         databaseMode={databaseMode}
         onDatabaseModeChange={setDatabaseMode}
+        restTimerDuration={restTimerDuration}
+        onRestTimerDurationChange={setRestTimerDuration}
         isInitialSetup
       />
     );
@@ -71,6 +77,7 @@ function App() {
             spreadsheetId={spreadsheetId}
             sheetName={sheetName}
             databaseMode={databaseMode}
+            restTimerDuration={restTimerDuration}
           />
         )}
         {currentView === "analytics" && (
@@ -96,6 +103,8 @@ function App() {
             onSheetNameChange={setSheetName}
             databaseMode={databaseMode}
             onDatabaseModeChange={setDatabaseMode}
+            restTimerDuration={restTimerDuration}
+            onRestTimerDurationChange={setRestTimerDuration}
           />
         )}
       </main>
