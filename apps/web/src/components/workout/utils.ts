@@ -10,6 +10,14 @@ export const DAYS: DayOfWeek[] = [
   "Sunday",
 ];
 
+// Constants for progressive overload visualization
+const PROGRESSIVE_OVERLOAD_SYMBOL = "+";
+
+// Helper to check if an exercise is bodyweight (no added weight)
+function isBodyweightExercise(currentWeight: number, lastWeight: number): boolean {
+  return currentWeight === 0 && lastWeight === 0;
+}
+
 // Format date as YYYY-MM-DD
 export function formatDate(date: Date): string {
   return date.toISOString().split("T")[0];
@@ -65,9 +73,7 @@ export function calculateDiffWithOverload(
   lastWeight: number,
   lastReps: number
 ): DiffResult {
-  const isBodyweight = currentWeight === 0 && lastWeight === 0;
-  
-  if (isBodyweight) {
+  if (isBodyweightExercise(currentWeight, lastWeight)) {
     const diff = currentReps - lastReps;
     return {
       value: diff !== 0 ? diff : null,
@@ -87,8 +93,8 @@ export function calculateDiffWithOverload(
     return {
       value: volumeDiff,
       isProgressiveOverload: true,
-      displayValue: "+",
-      showPlusPrefix: false, // '+' is already in displayValue
+      displayValue: PROGRESSIVE_OVERLOAD_SYMBOL,
+      showPlusPrefix: false, // symbol is already in displayValue
     };
   }
   
@@ -111,7 +117,7 @@ export function renderDiffDisplay(
     return null;
   }
 
-  const isBodyweight = currentWeight === 0 && lastWeight === 0;
+  const isBodyweight = isBodyweightExercise(currentWeight, lastWeight);
   const isPositive = diffResult.isProgressiveOverload || (diffResult.value !== null && diffResult.value > 0);
   const isNegative = !diffResult.isProgressiveOverload && diffResult.value !== null && diffResult.value < 0;
   
