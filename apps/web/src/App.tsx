@@ -23,6 +23,10 @@ function App() {
     "sheetName",
     "Sheet1"
   );
+  const [restTimerDuration, setRestTimerDuration] = useLocalStorage<number>(
+    "restTimerDuration",
+    120
+  );
 
   if (isPending) {
     return (
@@ -44,6 +48,8 @@ function App() {
         sheetName={sheetName}
         onSpreadsheetChange={setSpreadsheetId}
         onSheetNameChange={setSheetName}
+        restTimerDuration={restTimerDuration}
+        onRestTimerDurationChange={setRestTimerDuration}
         isInitialSetup
       />
     );
@@ -59,7 +65,11 @@ function App() {
 
       <main className="flex-1 pb-20">
         {currentView === "log" && (
-          <LogWorkoutView spreadsheetId={spreadsheetId} sheetName={sheetName} />
+          <LogWorkoutView
+            spreadsheetId={spreadsheetId}
+            sheetName={sheetName}
+            restTimerDuration={restTimerDuration}
+          />
         )}
         {currentView === "analytics" && (
           <AnalyticsView spreadsheetId={spreadsheetId} sheetName={sheetName} />
@@ -74,6 +84,8 @@ function App() {
             sheetName={sheetName}
             onSpreadsheetChange={setSpreadsheetId}
             onSheetNameChange={setSheetName}
+            restTimerDuration={restTimerDuration}
+            onRestTimerDurationChange={setRestTimerDuration}
           />
         )}
       </main>

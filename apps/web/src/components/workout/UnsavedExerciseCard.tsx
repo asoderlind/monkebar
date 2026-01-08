@@ -5,10 +5,28 @@ import { Input } from "@/components/ui/input";
 import { ChevronDown, Loader2, RotateCcw, Save } from "lucide-react";
 import { useExercises } from "@/hooks/useExercises";
 import { useExerciseHistory } from "@/hooks/useWorkouts";
-import { MUSCLE_GROUP_COLORS, type MuscleGroup } from "@monke-bar/shared";
+import {
+  MUSCLE_GROUP_COLORS,
+  type MuscleGroup,
+  type WorkoutSet,
+} from "@monke-bar/shared";
 import { SetInputModal } from "./SetInputModal";
 import { calculateDiff } from "./utils";
 import type { SetInput } from "./types";
+
+/**
+ * Type-safe helper to find a working set by its setNumber property.
+ * Prevents index mismatches by using the set's actual setNumber (1-4) instead of array position.
+ * @param sets - Array of WorkoutSet objects (should not include warmup)
+ * @param setNumber - The set number to find (1-4)
+ * @returns The matching WorkoutSet or undefined if not found
+ */
+function findWorkingSetByNumber(
+  sets: WorkoutSet[],
+  setNumber: number
+): WorkoutSet | undefined {
+  return sets.find((s) => s.setNumber === setNumber);
+}
 
 interface UnsavedExerciseCardProps {
   exerciseName: string;
@@ -22,6 +40,7 @@ interface UnsavedExerciseCardProps {
   isSaving: boolean;
   spreadsheetId: string;
   sheetName: string;
+  showSaveButton?: boolean;
 }
 
 export function UnsavedExerciseCard({
@@ -36,6 +55,7 @@ export function UnsavedExerciseCard({
   isSaving,
   spreadsheetId,
   sheetName,
+  showSaveButton = true,
 }: UnsavedExerciseCardProps) {
   const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
   const [modalState, setModalState] = useState<{
@@ -74,6 +94,9 @@ export function UnsavedExerciseCard({
 
   const lastWarmup = lastSession?.sets.find((s) => s.isWarmup);
   const lastWorkingSets = lastSession?.sets.filter((s) => !s.isWarmup) || [];
+  console.log("Last session:", lastSession);
+  console.log("Last warmup:", lastWarmup);
+  console.log("Last working sets:", lastWorkingSets);
 
   const openModal = (
     setIndex: number | "warmup",
@@ -85,11 +108,12 @@ export function UnsavedExerciseCard({
     if (value === 0 && lastSession) {
       if (setIndex === "warmup" && lastWarmup) {
         initialValue = field === "weight" ? lastWarmup.weight : lastWarmup.reps;
-      } else if (typeof setIndex === "number" && lastWorkingSets[setIndex]) {
-        initialValue =
-          field === "weight"
-            ? lastWorkingSets[setIndex].weight
-            : lastWorkingSets[setIndex].reps;
+      } else if (typeof setIndex === "number") {
+        // Use setNumber property (1-4) instead of array index (0-3)
+        const lastSet = findWorkingSetByNumber(lastWorkingSets, setIndex + 1);
+        if (lastSet) {
+          initialValue = field === "weight" ? lastSet.weight : lastSet.reps;
+        }
       }
     }
 
@@ -171,6 +195,14 @@ export function UnsavedExerciseCard({
                 </div>
               )}
             </div>
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={onReset}
+              disabled={isSaving}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
           </div>
         </CardHeader>
 
@@ -248,7 +280,11 @@ export function UnsavedExerciseCard({
           {/* Working sets */}
           <div className="space-y-2">
             {sets.map((set, setIndex) => {
-              const lastSet = lastWorkingSets[setIndex];
+              // Use setNumber property (1-4) instead of array index (0-3)
+              const lastSet = findWorkingSetByNumber(
+                lastWorkingSets,
+                setIndex + 1
+              );
               return (
                 <div key={setIndex} className="flex items-center gap-2">
                   <span className="text-sm font-medium min-w-[80px]">
@@ -324,35 +360,28 @@ export function UnsavedExerciseCard({
             })}
           </div>
 
-          {/* Save and Reset buttons */}
-          <div className="flex gap-2 mt-4">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={onReset}
-              disabled={isSaving}
-            >
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Reset
-            </Button>
-            <Button
-              className="flex-1"
-              onClick={onSave}
-              disabled={isSaving || !exerciseName.trim()}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </>
-              )}
-            </Button>
-          </div>
+          {/* Save button */}
+          {showSaveButton && (
+            <div className="mt-4">
+              <Button
+                className="w-full"
+                onClick={onSave}
+                disabled={isSaving || !exerciseName.trim()}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 

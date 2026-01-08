@@ -1,5 +1,15 @@
-import { useState } from "react";
-import { FileCheck, Layers } from "lucide-react";
+import { useState, useEffect } from "react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Layers,
+  Loader2,
+  Save,
+  Timer,
+  Pause,
+  RotateCcw,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { useAddWorkoutEntries, useWorkoutByDate } from "@/hooks/useWorkouts";
 import { useExercises } from "@/hooks/useExercises";
@@ -13,18 +23,90 @@ import { formatDate, formatDateHeader, DAYS } from "@/components/workout/utils";
 interface LogWorkoutViewProps {
   spreadsheetId: string;
   sheetName: string;
+  restTimerDuration: number;
 }
 
 export function LogWorkoutView({
   spreadsheetId,
   sheetName,
+  restTimerDuration,
 }: LogWorkoutViewProps) {
   // State for date selection
-  const [selectedDate] = useState(() => formatDate(new Date()));
-  const [selectedDay] = useState<DayOfWeek>(() => {
+  const [selectedDate, setSelectedDate] = useState(() =>
+    formatDate(new Date())
+  );
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(() => {
     const dayIndex = new Date().getDay();
     return DAYS[dayIndex === 0 ? 6 : dayIndex - 1];
   });
+
+  // Date navigation handlers
+  const handlePreviousDay = () => {
+    const currentDate = new Date(selectedDate);
+    currentDate.setDate(currentDate.getDate() - 1);
+    setSelectedDate(formatDate(currentDate));
+    const dayIndex = currentDate.getDay();
+    setSelectedDay(DAYS[dayIndex === 0 ? 6 : dayIndex - 1]);
+  };
+
+  const handleNextDay = () => {
+    const currentDate = new Date(selectedDate);
+    currentDate.setDate(currentDate.getDate() + 1);
+    setSelectedDate(formatDate(currentDate));
+    const dayIndex = currentDate.getDay();
+    setSelectedDay(DAYS[dayIndex === 0 ? 6 : dayIndex - 1]);
+  };
+
+  // Rest timer state
+  const [remainingSeconds, setRemainingSeconds] = useState<number>(0);
+  const [timerActive, setTimerActive] = useState(false);
+
+  // Timer countdown effect
+  useEffect(() => {
+    if (!timerActive || remainingSeconds <= 0) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setRemainingSeconds((prev) => {
+        if (prev <= 1) {
+          setTimerActive(false);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [timerActive, remainingSeconds]);
+
+  // Timer controls
+  const startTimer = (duration: number) => {
+    setRemainingSeconds(duration);
+    setTimerActive(true);
+  };
+
+  const pauseTimer = () => {
+    setTimerActive(false);
+  };
+
+  const resumeTimer = () => {
+    if (remainingSeconds > 0) {
+      setTimerActive(true);
+    }
+  };
+
+  const resetTimer = () => {
+    setRemainingSeconds(0);
+    setTimerActive(false);
+  };
+
+  // Format timer display as MM:SS
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
   // Fetch exercises from database to get muscle groups
   const { data: exercisesData } = useExercises();
@@ -54,7 +136,6 @@ export function LogWorkoutView({
     updateExercise2,
     toggleSupersetMode,
     resetDraft,
-    hasDraftContent,
   } = useWorkoutDraft();
 
   // Save workout mutation
@@ -152,16 +233,44 @@ export function LogWorkoutView({
     <div className="p-4 space-y-4">
       {/* Large Date Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{formatDateHeader(selectedDate)}</h1>
         <div className="flex items-center gap-2">
-          {hasDraftContent && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <FileCheck className="h-4 w-4" />
-              <span>Draft saved</span>
-            </div>
-          )}
+          <Button variant="ghost" size="icon" onClick={handlePreviousDay}>
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-3xl font-bold">
+            {formatDateHeader(selectedDate)}
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={handleNextDay}>
+            <ChevronRight className="h-6 w-6" />
+          </Button>
         </div>
       </div>
+
+      {/* Rest Timer */}
+      {remainingSeconds > 0 && (
+        <div className="flex items-center justify-center gap-3 p-4 bg-card border rounded-lg">
+          <Timer className="h-5 w-5 text-muted-foreground" />
+          <span className="text-2xl font-mono font-bold">
+            {formatTimer(remainingSeconds)}
+          </span>
+          <div className="flex gap-2">
+            {timerActive ? (
+              <Button variant="outline" size="sm" onClick={pauseTimer}>
+                <Pause className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" onClick={resumeTimer}>
+                <Timer className="h-4 w-4" />
+              </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={resetTimer}>
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Superset Mode Toggle */}
       <div className="flex items-center justify-between py-2">
@@ -195,18 +304,24 @@ export function LogWorkoutView({
           onWarmupChange={(warmup) =>
             updateExercise((prev) => ({ ...prev, warmup }))
           }
-          onSetChange={(index, set) =>
+          onSetChange={(index, set) => {
             updateExercise((prev) => {
               const newSets = [...prev.sets];
               newSets[index] = set;
               return { ...prev, sets: newSets };
-            })
-          }
+            });
+            // Start rest timer after completing a working set
+            if (set.reps > 0) {
+              startTimer(restTimerDuration);
+              toast.success("Draft saved");
+            }
+          }}
           onSave={handleSave}
           onReset={resetDraft}
           isSaving={saveMutation.isPending}
           spreadsheetId={spreadsheetId}
           sheetName={sheetName}
+          showSaveButton={!supersetMode}
         />
 
         {supersetMode && (
@@ -222,19 +337,44 @@ export function LogWorkoutView({
               onWarmupChange={(warmup) =>
                 updateExercise2((prev) => ({ ...prev, warmup }))
               }
-              onSetChange={(index, set) =>
+              onSetChange={(index, set) => {
                 updateExercise2((prev) => {
                   const newSets = [...prev.sets];
                   newSets[index] = set;
                   return { ...prev, sets: newSets };
-                })
-              }
+                });
+                // Start rest timer after completing a working set
+                if (set.reps > 0) {
+                  startTimer(restTimerDuration);
+                  toast.success("Draft saved");
+                }
+              }}
               onSave={handleSave}
               onReset={resetDraft}
               isSaving={saveMutation.isPending}
               spreadsheetId={spreadsheetId}
               sheetName={sheetName}
+              showSaveButton={false}
             />
+
+            {/* Save button for superset mode */}
+            <Button
+              className="w-full"
+              onClick={handleSave}
+              disabled={saveMutation.isPending || !unsavedExercise.name.trim()}
+            >
+              {saveMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save
+                </>
+              )}
+            </Button>
           </>
         )}
       </div>
@@ -268,7 +408,6 @@ export function LogWorkoutView({
               </div>
             );
           })}
-          ear{" "}
         </>
       )}
 

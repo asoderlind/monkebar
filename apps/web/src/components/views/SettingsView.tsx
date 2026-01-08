@@ -8,13 +8,16 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { LogOut, Check, FileSpreadsheet } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { LogOut, Check, FileSpreadsheet, Timer } from "lucide-react";
 
 interface SettingsViewProps {
   spreadsheetId: string | null;
   sheetName: string;
   onSpreadsheetChange: (id: string | null) => void;
   onSheetNameChange: (name: string) => void;
+  restTimerDuration: number;
+  onRestTimerDurationChange: (duration: number) => void;
   isInitialSetup?: boolean;
 }
 
@@ -23,6 +26,8 @@ export function SettingsView({
   sheetName,
   onSpreadsheetChange,
   onSheetNameChange,
+  restTimerDuration,
+  onRestTimerDurationChange,
   isInitialSetup = false,
 }: SettingsViewProps) {
   const { data: session } = useSession();
@@ -195,6 +200,57 @@ export function SettingsView({
           </CardContent>
         </Card>
       )}
+
+      {/* Rest Timer Settings */}
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex items-center gap-2">
+            <Timer className="h-4 w-4" />
+            <CardTitle className="text-base">Rest Timer</CardTitle>
+          </div>
+          <CardDescription>
+            Default countdown duration between sets
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-1 block">Minutes</label>
+              <Input
+                type="number"
+                min="0"
+                max="10"
+                value={Math.floor(restTimerDuration / 60)}
+                onChange={(e) => {
+                  const minutes = parseInt(e.target.value) || 0;
+                  const seconds = restTimerDuration % 60;
+                  onRestTimerDurationChange(minutes * 60 + seconds);
+                }}
+              />
+            </div>
+            <div className="flex-1">
+              <label className="text-sm font-medium mb-1 block">Seconds</label>
+              <Input
+                type="number"
+                min="0"
+                max="59"
+                value={restTimerDuration % 60}
+                onChange={(e) => {
+                  const seconds = parseInt(e.target.value) || 0;
+                  const minutes = Math.floor(restTimerDuration / 60);
+                  onRestTimerDurationChange(minutes * 60 + seconds);
+                }}
+              />
+            </div>
+            <div className="pt-6">
+              <span className="text-2xl font-mono font-bold text-muted-foreground">
+                {Math.floor(restTimerDuration / 60)}:
+                {(restTimerDuration % 60).toString().padStart(2, "0")}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Continue Button for Initial Setup */}
       {isInitialSetup && spreadsheetId && (
