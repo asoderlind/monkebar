@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { FileCheck, Layers, Loader2, Save } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  FileCheck,
+  Layers,
+  Loader2,
+  Save,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAddWorkoutEntries, useWorkoutByDate } from "@/hooks/useWorkouts";
 import { useExercises } from "@/hooks/useExercises";
@@ -20,11 +27,30 @@ export function LogWorkoutView({
   sheetName,
 }: LogWorkoutViewProps) {
   // State for date selection
-  const [selectedDate] = useState(() => formatDate(new Date()));
-  const [selectedDay] = useState<DayOfWeek>(() => {
+  const [selectedDate, setSelectedDate] = useState(() =>
+    formatDate(new Date())
+  );
+  const [selectedDay, setSelectedDay] = useState<DayOfWeek>(() => {
     const dayIndex = new Date().getDay();
     return DAYS[dayIndex === 0 ? 6 : dayIndex - 1];
   });
+
+  // Date navigation handlers
+  const handlePreviousDay = () => {
+    const currentDate = new Date(selectedDate);
+    currentDate.setDate(currentDate.getDate() - 1);
+    setSelectedDate(formatDate(currentDate));
+    const dayIndex = currentDate.getDay();
+    setSelectedDay(DAYS[dayIndex === 0 ? 6 : dayIndex - 1]);
+  };
+
+  const handleNextDay = () => {
+    const currentDate = new Date(selectedDate);
+    currentDate.setDate(currentDate.getDate() + 1);
+    setSelectedDate(formatDate(currentDate));
+    const dayIndex = currentDate.getDay();
+    setSelectedDay(DAYS[dayIndex === 0 ? 6 : dayIndex - 1]);
+  };
 
   // Fetch exercises from database to get muscle groups
   const { data: exercisesData } = useExercises();
@@ -152,7 +178,14 @@ export function LogWorkoutView({
     <div className="p-4 space-y-4">
       {/* Large Date Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold">{formatDateHeader(selectedDate)}</h1>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="icon" onClick={handlePreviousDay}>
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+          <h1 className="text-3xl font-bold">
+            {formatDateHeader(selectedDate)}
+          </h1>
+        </div>
         <div className="flex items-center gap-2">
           {hasDraftContent && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -160,6 +193,9 @@ export function LogWorkoutView({
               <span>Draft saved</span>
             </div>
           )}
+          <Button variant="ghost" size="icon" onClick={handleNextDay}>
+            <ChevronRight className="h-6 w-6" />
+          </Button>
         </div>
       </div>
 
