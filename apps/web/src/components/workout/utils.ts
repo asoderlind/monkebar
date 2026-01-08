@@ -50,3 +50,49 @@ export function calculateDiff(
     return diff !== 0 ? diff : null;
   }
 }
+
+// Calculate diff with progressive overload detection
+export interface DiffResult {
+  value: number | null;
+  isProgressiveOverload: boolean; // true if weight increased (regardless of volume)
+  displayValue: string | null; // what to show in UI
+}
+
+export function calculateDiffWithOverload(
+  currentWeight: number,
+  currentReps: number,
+  lastWeight: number,
+  lastReps: number
+): DiffResult {
+  const isBodyweight = currentWeight === 0 && lastWeight === 0;
+  
+  if (isBodyweight) {
+    const diff = currentReps - lastReps;
+    return {
+      value: diff !== 0 ? diff : null,
+      isProgressiveOverload: false,
+      displayValue: diff !== 0 ? diff.toString() : null,
+    };
+  }
+  
+  const currentVolume = currentWeight * currentReps;
+  const lastVolume = lastWeight * lastReps;
+  const volumeDiff = currentVolume - lastVolume;
+  const weightIncreased = currentWeight > lastWeight;
+  
+  // If weight increased, that's progressive overload even if volume decreased
+  if (weightIncreased) {
+    return {
+      value: volumeDiff,
+      isProgressiveOverload: true,
+      displayValue: "+", // Just show "+" for progressive overload
+    };
+  }
+  
+  // Otherwise, show normal volume diff
+  return {
+    value: volumeDiff !== 0 ? volumeDiff : null,
+    isProgressiveOverload: false,
+    displayValue: volumeDiff !== 0 ? volumeDiff.toString() : null,
+  };
+}

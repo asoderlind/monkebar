@@ -11,7 +11,7 @@ import {
   type WorkoutSet,
 } from "@monke-bar/shared";
 import { SetInputModal } from "./SetInputModal";
-import { calculateDiff } from "./utils";
+import { calculateDiffWithOverload } from "./utils";
 import type { SetInput } from "./types";
 
 /**
@@ -244,29 +244,31 @@ export function UnsavedExerciseCard({
               <div className="w-12 text-xs text-center">
                 {lastWarmup ? (
                   (() => {
-                    const diff = calculateDiff(
+                    const diffResult = calculateDiffWithOverload(
                       warmup.weight,
                       warmup.reps,
                       lastWarmup.weight,
                       lastWarmup.reps
                     );
-                    if (diff === null)
+                    if (diffResult.displayValue === null)
                       return <span className="text-muted-foreground">0</span>;
                     const isBodyweight =
                       warmup.weight === 0 && lastWarmup.weight === 0;
+                    const isPositive = diffResult.isProgressiveOverload || (diffResult.value !== null && diffResult.value > 0);
+                    const isNegative = !diffResult.isProgressiveOverload && diffResult.value !== null && diffResult.value < 0;
                     return (
                       <span
                         className={
-                          diff > 0
+                          isPositive
                             ? "text-green-500"
-                            : diff < 0
+                            : isNegative
                             ? "text-red-500"
                             : "text-muted-foreground"
                         }
                       >
-                        {diff > 0 ? "+" : ""}
-                        {diff}
-                        {isBodyweight ? "" : "kg"}
+                        {isPositive ? "+" : ""}
+                        {diffResult.displayValue}
+                        {isBodyweight || diffResult.isProgressiveOverload ? "" : "kg"}
                       </span>
                     );
                   })()
@@ -323,31 +325,33 @@ export function UnsavedExerciseCard({
                   <div className="w-12 text-xs text-center">
                     {lastSet ? (
                       (() => {
-                        const diff = calculateDiff(
+                        const diffResult = calculateDiffWithOverload(
                           set.weight,
                           set.reps,
                           lastSet.weight,
                           lastSet.reps
                         );
-                        if (diff === null)
+                        if (diffResult.displayValue === null)
                           return (
                             <span className="text-muted-foreground">0</span>
                           );
                         const isBodyweight =
                           set.weight === 0 && lastSet.weight === 0;
+                        const isPositive = diffResult.isProgressiveOverload || (diffResult.value !== null && diffResult.value > 0);
+                        const isNegative = !diffResult.isProgressiveOverload && diffResult.value !== null && diffResult.value < 0;
                         return (
                           <span
                             className={
-                              diff > 0
+                              isPositive
                                 ? "text-green-500"
-                                : diff < 0
+                                : isNegative
                                 ? "text-red-500"
                                 : "text-muted-foreground"
                             }
                           >
-                            {diff > 0 ? "+" : ""}
-                            {diff}
-                            {isBodyweight ? "" : "kg"}
+                            {isPositive ? "+" : ""}
+                            {diffResult.displayValue}
+                            {isBodyweight || diffResult.isProgressiveOverload ? "" : "kg"}
                           </span>
                         );
                       })()
