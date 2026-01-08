@@ -67,22 +67,34 @@ export function AnalyticsView({
   }
 
   // Prepare volume chart data - group by week
-  const weeklyVolume =
-    volumeHistory?.reduce((acc, item) => {
-      const weekNumber = getWeekNumber(item.date);
-      const year = getYear(item.date);
-      const key = `${year}-W${weekNumber}`;
-      if (!acc[key]) {
-        acc[key] = { week: `W${weekNumber}`, year, weekNumber, volume: 0 };
-      }
-      acc[key].volume += item.totalVolume;
-      return acc;
-    }, {} as Record<string, { week: string; year: number; weekNumber: number; volume: number }>) ||
-    {};
-
-  const volumeChartData = Object.values(weeklyVolume)
-    .sort((a, b) => a.year - b.year || a.weekNumber - b.weekNumber)
-    .slice(-8);
+  const volumeChartData = volumeHistory
+    ? volumeHistory
+        .map((item) => {
+          // Handle different data formats from sheets vs postgres
+          if ("week" in item && "totalVolume" in item) {
+            // Postgres format: { week: "2026-W2", totalVolume: 12345 }
+            const [year, week] = item.week.split("-W");
+            return {
+              week: `W${week}`,
+              year: parseInt(year),
+              weekNumber: parseInt(week),
+              volume: item.totalVolume,
+            };
+          } else {
+            // Sheets format: { date: "2026-01-05", totalVolume: 12345 }
+            const weekNumber = getWeekNumber((item as any).date);
+            const year = getYear((item as any).date);
+            return {
+              week: `W${weekNumber}`,
+              year,
+              weekNumber,
+              volume: (item as any).totalVolume,
+            };
+          }
+        })
+        .sort((a, b) => a.year - b.year || a.weekNumber - b.weekNumber)
+        .slice(-8)
+    : [];
 
   return (
     <div className="p-4 space-y-4">

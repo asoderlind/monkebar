@@ -10,7 +10,11 @@ import { toast } from "sonner";
 import { useMemo } from "react";
 
 // Utility functions for date calculations
-function getWeekNumber(date: Date | string): number {
+function getWeekNumber(date: Date | string | null | undefined): number {
+  if (!date) {
+    console.error("Invalid date: null or undefined");
+    return 1;
+  }
   const d = typeof date === "string" ? new Date(date + "T00:00:00") : date;
   if (!d || isNaN(d.getTime())) {
     console.error("Invalid date:", date);
@@ -27,7 +31,11 @@ function getWeekNumber(date: Date | string): number {
   );
 }
 
-function getYear(date: Date | string): number {
+function getYear(date: Date | string | null | undefined): number {
+  if (!date) {
+    console.error("Invalid date: null or undefined");
+    return new Date().getFullYear();
+  }
   const d = typeof date === "string" ? new Date(date + "T00:00:00") : date;
   if (!d || isNaN(d.getTime())) {
     console.error("Invalid date:", date);
@@ -431,12 +439,19 @@ export function useWorkoutLogSync(spreadsheetId: string, sheetName: string) {
   });
 }
 
-export function useAddWorkoutEntries(spreadsheetId: string, sheetName: string) {
+export function useAddWorkoutEntries(
+  spreadsheetId: string,
+  sheetName: string,
+  databaseMode: "sheets" | "postgres" = "sheets"
+) {
   const queryClient = useQueryClient();
   const { workoutLog } = useApiClients(spreadsheetId, sheetName);
 
   return useMutation({
-    mutationFn: workoutLog.addEntries,
+    mutationFn:
+      databaseMode === "postgres"
+        ? dbWorkoutsApi.addEntries
+        : workoutLog.addEntries,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workout-log"] });
       queryClient.invalidateQueries({ queryKey: ["workouts"] });
@@ -445,6 +460,26 @@ export function useAddWorkoutEntries(spreadsheetId: string, sheetName: string) {
     },
     onError: (error) => {
       toast.error(`Failed to save: ${error.message}`);
+    },
+  });
+}
+
+export function useDeleteExercise(
+  databaseMode: "sheets" | "postgres" = "sheets"
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ date, exerciseId }: { date: string; exerciseId: string }) =>
+      databaseMode === "postgres"
+        ? dbWorkoutsApi.deleteExercise(date, exerciseId)
+        : Promise.reject(new Error("Delete only supported in postgres mode")),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workouts"] });
+      toast.success("Exercise deleted!");
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete: ${error.message}`);
     },
   });
 }

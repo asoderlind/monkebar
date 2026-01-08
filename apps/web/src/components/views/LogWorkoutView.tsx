@@ -8,10 +8,15 @@ import {
   Timer,
   Pause,
   RotateCcw,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { useAddWorkoutEntries, useWorkoutByDate } from "@/hooks/useWorkouts";
+import {
+  useAddWorkoutEntries,
+  useWorkoutByDate,
+  useDeleteExercise,
+} from "@/hooks/useWorkouts";
 import { useExercises } from "@/hooks/useExercises";
 import type { WorkoutLogEntry } from "@/lib/api";
 import type { DayOfWeek, MuscleGroup } from "@monke-bar/shared";
@@ -142,8 +147,19 @@ export function LogWorkoutView({
   } = useWorkoutDraft();
 
   // Save workout mutation
-  const saveMutation = useAddWorkoutEntries(spreadsheetId, sheetName);
+  const saveMutation = useAddWorkoutEntries(
+    spreadsheetId,
+    sheetName,
+    databaseMode
+  );
+  // Delete exercise mutation
+  const deleteMutation = useDeleteExercise(databaseMode);
 
+  const handleDeleteExercise = (exerciseId: string) => {
+    if (confirm("Are you sure you want to delete this exercise?")) {
+      deleteMutation.mutate({ date: selectedDate, exerciseId });
+    }
+  };
   const handleSave = () => {
     if (!unsavedExercise.name.trim()) {
       return;
@@ -405,6 +421,11 @@ export function LogWorkoutView({
                       sets={exercise.sets}
                       groupId={exercise.groupId}
                       groupType={exercise.groupType}
+                      onDelete={
+                        databaseMode === "postgres"
+                          ? () => handleDeleteExercise(exercise.id)
+                          : undefined
+                      }
                     />
                   </div>
                 ))}

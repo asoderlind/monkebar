@@ -409,3 +409,160 @@ workoutsRoutes.delete("/db", async (c) => {
     return c.json({ success: false, error: message }, 500);
   }
 });
+
+/**
+ * POST /api/workouts/db/entries
+ * Add workout entries to database (similar to sheets workout log)
+ */
+const workoutEntrySchema = z.object({
+  date: z.string(),
+  day: z.string(),
+  exercise: z.string(),
+  warmup: z
+    .object({
+      weight: z.number(),
+      reps: z.number(),
+    })
+    .optional(),
+  sets: z.array(
+    z.object({
+      weight: z.number(),
+      reps: z.number(),
+    })
+  ),
+  groupId: z.string().optional(),
+  groupType: z.enum(["superset"]).optional(),
+});
+
+workoutsRoutes.post(
+  "/db/entries",
+  zValidator("json", z.object({ entries: z.array(workoutEntrySchema) })),
+  async (c) => {
+    try {
+      const user = c.get("user");
+      const { entries } = c.req.valid("json");
+
+      let entriesAdded = 0;
+
+      // Group entries by date
+      const entriesByDate = entries.reduce((acc, entry) => {
+        if (!acc[entry.date]) {
+          acc[entry.date] = [];
+        }
+        acc[entry.date].push(entry);
+        return acc;
+      }, {} as Record<string, typeof entries>);
+
+      // Process each date
+      for (const [date, dateEntries] of Object.entries(entriesByDate)) {
+        const workoutDate = new Date(date);
+        const dayOfWeek = getDayOfWeek(workoutDate);
+        const weekNumber = getWeekNumber(workoutDate);
+        const year = getYear(workoutDate);
+
+        // Find or create workout session
+        let session = await db.query.workoutSessions.findFirst({
+          where: eq(workoutSessions.date, date),
+        });
+
+        if (!session) {
+          const [newSession] = await db
+            .insert(workoutSessions)
+            .values({
+              weekNumber,
+              dayOfWeek,
+              date,
+            })
+            .returning();
+          session = newSession;
+        }
+
+        // Get existing exercise count to maintain order
+        const existingExercises = await db
+          .select()
+          .from(exercises)
+          .where(eq(exercises.sessionId, session.id));
+
+        let orderIndex = existingExercises.length;
+
+        // Add each entry as an exercise
+        for (const entry of dateEntries) {
+          const [newExercise] = await db
+            .insert(exercises)
+            .values({
+              sessionId: session.id,
+              name: entry.exercise,
+              orderIndex: orderIndex++,
+              groupId: entry.groupId || null,
+              groupType: entry.groupType || null,
+            })
+            .returning();
+
+          // Add sets
+          const setsToInsert = [];
+
+          // Add warmup set if exists
+          if (entry.warmup) {
+            setsToInsert.push({
+              exerciseId: newExercise.id,
+              setNumber: 0,
+              weight: entry.warmup.weight.toString(),
+              reps: entry.warmup.reps,
+              isWarmup: true,
+            });
+          }
+
+          // Add working sets
+          entry.sets.forEach((set, idx) => {
+            setsToInsert.push({
+              exerciseId: newExercise.id,
+              setNumber: idx + 1,
+              weight: set.weight.toString(),
+              reps: set.reps,
+              isWarmup: false,
+            });
+          });
+
+          if (setsToInsert.length > 0) {
+            await db.insert(sets).values(setsToInsert);
+          }
+
+          entriesAdded++;
+        }
+      }
+
+      return c.json({
+        success: true,
+        data: { entriesAdded },
+      });
+    } catch (error) {
+      console.error("Error adding workout entries:", error);
+      const message = error instanceof Error ? error.message : "Unknown error";
+      return c.json({ success: false, error: message }, 500);
+    }
+  }
+);
+
+/**
+ * DELETE /api/workouts/db/:date/exercise/:exerciseId
+ * Delete a specific exercise from a workout
+ */
+workoutsRoutes.delete("/db/:date/exercise/:exerciseId", async (c) => {
+  try {
+    const user = c.get("user");
+    const date = c.req.param("date");
+    const exerciseId = c.req.param("exerciseId");
+
+    // Delete the exercise (cascade will handle sets)
+    await db.delete(exercises).where(eq(exercises.id, parseInt(exerciseId)));
+
+    return c.json({
+      success: true,
+      message: "Exercise deleted",
+    });
+  } catch (error) {
+    console.error("Error deleting exercise:", error);
+    const message = error instanceof Error ? error.message : "Unknown error";
+    return c.json({ success: false, error: message }, 500);
+  }
+});

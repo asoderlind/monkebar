@@ -299,6 +299,22 @@ export const dbWorkoutsApi = {
       }
     ),
 
+  // Add workout entries to database
+  addEntries: (entries: WorkoutLogEntry[]) =>
+    fetchApi<{ entriesAdded: number }>("/workouts/db/entries", {
+      method: "POST",
+      body: JSON.stringify({ entries }),
+    }),
+
+  // Delete an exercise from a workout
+  deleteExercise: (date: string, exerciseId: string) =>
+    fetchApi<{ message: string }>(
+      `/workouts/db/${date}/exercise/${exerciseId}`,
+      {
+        method: "DELETE",
+      }
+    ),
+
   // Delete all workouts from database
   deleteAll: () =>
     fetchApi<{ message: string }>("/workouts/db", {
