@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Check } from "lucide-react";
+import { Check, Trash2 } from "lucide-react";
 import { MUSCLE_GROUP_COLORS, type MuscleGroup } from "@monke-bar/shared";
+import { Button } from "@/components/ui/button";
 
 interface SavedExerciseCardProps {
   exerciseName: string;
@@ -8,6 +9,7 @@ interface SavedExerciseCardProps {
   sets: Array<{ weight: number; reps: number; isWarmup: boolean }>;
   groupId?: string;
   groupType?: "superset";
+  onDelete?: () => void;
 }
 
 export function SavedExerciseCard({
@@ -16,6 +18,7 @@ export function SavedExerciseCard({
   sets,
   groupId,
   groupType,
+  onDelete,
 }: SavedExerciseCardProps) {
   const colorClass = muscleGroup ? MUSCLE_GROUP_COLORS[muscleGroup] : "";
 
@@ -42,6 +45,16 @@ export function SavedExerciseCard({
             </span>
           )}
           <Check className="h-4 w-4 text-green-500" />
+          {onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={onDelete}
+            >
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent>

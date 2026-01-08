@@ -11,6 +11,7 @@ import { Header } from "./components/Header";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 
 type View = "log" | "analytics" | "history" | "exercises" | "settings";
+type DatabaseMode = "sheets" | "postgres";
 
 function App() {
   const { data: session, isPending } = useSession();
@@ -22,6 +23,10 @@ function App() {
   const [sheetName, setSheetName] = useLocalStorage<string>(
     "sheetName",
     "Sheet1"
+  );
+  const [databaseMode, setDatabaseMode] = useLocalStorage<DatabaseMode>(
+    "databaseMode",
+    "sheets"
   );
   const [restTimerDuration, setRestTimerDuration] = useLocalStorage<number>(
     "restTimerDuration",
@@ -48,6 +53,8 @@ function App() {
         sheetName={sheetName}
         onSpreadsheetChange={setSpreadsheetId}
         onSheetNameChange={setSheetName}
+        databaseMode={databaseMode}
+        onDatabaseModeChange={setDatabaseMode}
         restTimerDuration={restTimerDuration}
         onRestTimerDurationChange={setRestTimerDuration}
         isInitialSetup
@@ -61,6 +68,7 @@ function App() {
         spreadsheetId={spreadsheetId}
         sheetName={sheetName}
         onSettingsClick={() => setCurrentView("settings")}
+        databaseMode={databaseMode}
       />
 
       <main className="flex-1 pb-20">
@@ -68,14 +76,23 @@ function App() {
           <LogWorkoutView
             spreadsheetId={spreadsheetId}
             sheetName={sheetName}
+            databaseMode={databaseMode}
             restTimerDuration={restTimerDuration}
           />
         )}
         {currentView === "analytics" && (
-          <AnalyticsView spreadsheetId={spreadsheetId} sheetName={sheetName} />
+          <AnalyticsView
+            spreadsheetId={spreadsheetId}
+            sheetName={sheetName}
+            databaseMode={databaseMode}
+          />
         )}
         {currentView === "history" && (
-          <HistoryView spreadsheetId={spreadsheetId} sheetName={sheetName} />
+          <HistoryView
+            spreadsheetId={spreadsheetId}
+            sheetName={sheetName}
+            databaseMode={databaseMode}
+          />
         )}
         {currentView === "exercises" && <ExercisesView />}
         {currentView === "settings" && (
@@ -84,6 +101,8 @@ function App() {
             sheetName={sheetName}
             onSpreadsheetChange={setSpreadsheetId}
             onSheetNameChange={setSheetName}
+            databaseMode={databaseMode}
+            onDatabaseModeChange={setDatabaseMode}
             restTimerDuration={restTimerDuration}
             onRestTimerDurationChange={setRestTimerDuration}
           />

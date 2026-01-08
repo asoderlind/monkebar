@@ -10,6 +10,7 @@ import {
   text,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 
 // ============================================================================
 // Auth Tables (better-auth)
@@ -140,6 +141,32 @@ export const exerciseMaster = pgTable("exercise_master", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   deletedAt: timestamp("deleted_at"),
 });
+
+// ============================================================================
+// Relations
+// ============================================================================
+
+export const workoutSessionsRelations = relations(
+  workoutSessions,
+  ({ many }) => ({
+    exercises: many(exercises),
+  })
+);
+
+export const exercisesRelations = relations(exercises, ({ one, many }) => ({
+  session: one(workoutSessions, {
+    fields: [exercises.sessionId],
+    references: [workoutSessions.id],
+  }),
+  sets: many(sets),
+}));
+
+export const setsRelations = relations(sets, ({ one }) => ({
+  exercise: one(exercises, {
+    fields: [sets.exerciseId],
+    references: [exercises.id],
+  }),
+}));
 
 // Type exports for use in the app
 export type WorkoutSession = typeof workoutSessions.$inferSelect;

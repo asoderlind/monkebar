@@ -4,9 +4,45 @@ import {
   createAnalyticsApi,
   createSheetsApi,
   createWorkoutLogApi,
+  dbWorkoutsApi,
 } from "@/lib/api";
 import { toast } from "sonner";
 import { useMemo } from "react";
+
+// Utility functions for date calculations
+function getWeekNumber(date: Date | string | null | undefined): number {
+  if (!date) {
+    console.error("Invalid date: null or undefined");
+    return 1;
+  }
+  const d = typeof date === "string" ? new Date(date + "T00:00:00") : date;
+  if (!d || isNaN(d.getTime())) {
+    console.error("Invalid date:", date);
+    return 1;
+  }
+  const utcDate = new Date(
+    Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+  );
+  const dayNum = utcDate.getUTCDay() || 7;
+  utcDate.setUTCDate(utcDate.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(utcDate.getUTCFullYear(), 0, 1));
+  return Math.ceil(
+    ((utcDate.getTime() - yearStart.getTime()) / 86400000 + 1) / 7
+  );
+}
+
+function getYear(date: Date | string | null | undefined): number {
+  if (!date) {
+    console.error("Invalid date: null or undefined");
+    return new Date().getFullYear();
+  }
+  const d = typeof date === "string" ? new Date(date + "T00:00:00") : date;
+  if (!d || isNaN(d.getTime())) {
+    console.error("Invalid date:", date);
+    return new Date().getFullYear();
+  }
+  return d.getFullYear();
+}
 
 // Helper hook to create memoized API clients
 function useApiClients(spreadsheetId: string, sheetName: string) {
@@ -24,14 +60,16 @@ function useApiClients(spreadsheetId: string, sheetName: string) {
 // Workouts hooks
 export function useWorkouts(
   spreadsheetId: string,
-  sheetName: string = "Sheet1"
+  sheetName: string = "Sheet1",
+  databaseMode: "sheets" | "postgres" = "sheets"
 ) {
   const { workouts } = useApiClients(spreadsheetId, sheetName);
 
   return useQuery({
-    queryKey: ["workouts", spreadsheetId, sheetName],
-    queryFn: workouts.getAll,
-    enabled: !!spreadsheetId,
+    queryKey: ["workouts", databaseMode, spreadsheetId, sheetName],
+    queryFn:
+      databaseMode === "postgres" ? dbWorkoutsApi.getAll : workouts.getAll,
+    enabled: databaseMode === "postgres" || !!spreadsheetId,
   });
 }
 
@@ -51,27 +89,54 @@ export function useLatestWorkout(
 export function useWorkoutByDate(
   date: string,
   spreadsheetId: string,
-  sheetName: string = "Sheet1"
+  sheetName: string = "Sheet1",
+  databaseMode: "sheets" | "postgres" = "sheets"
 ) {
   const { workouts } = useApiClients(spreadsheetId, sheetName);
 
   return useQuery({
-    queryKey: ["workouts", "date", date, spreadsheetId, sheetName],
-    queryFn: () => workouts.getByDate(date),
-    enabled: !!date && !!spreadsheetId,
+    queryKey: [
+      "workouts",
+      "date",
+      date,
+      databaseMode,
+      spreadsheetId,
+      sheetName,
+    ],
+    queryFn: async () => {
+      if (databaseMode === "postgres") {
+        const allWorkouts = await dbWorkoutsApi.getAll();
+        return allWorkouts.find((w) => w.date === date) || null;
+      }
+      return workouts.getByDate(date);
+    },
+    enabled: !!date && (databaseMode === "postgres" || !!spreadsheetId),
   });
 }
 
 export function useExerciseList(
   spreadsheetId: string,
-  sheetName: string = "Sheet1"
+  sheetName: string = "Sheet1",
+  databaseMode: "sheets" | "postgres" = "sheets"
 ) {
   const { workouts } = useApiClients(spreadsheetId, sheetName);
 
   return useQuery({
-    queryKey: ["exercises", spreadsheetId, sheetName],
-    queryFn: workouts.getExercises,
-    enabled: !!spreadsheetId,
+    queryKey: ["exercises", databaseMode, spreadsheetId, sheetName],
+    queryFn: async () => {
+      if (databaseMode === "postgres") {
+        const allWorkouts = await dbWorkoutsApi.getAll();
+        const exerciseSet = new Set<string>();
+        allWorkouts.forEach((workout) => {
+          workout.exercises.forEach((exercise) => {
+            exerciseSet.add(exercise.name);
+          });
+        });
+        return Array.from(exerciseSet).sort();
+      }
+      return workouts.getExercises();
+    },
+    enabled: databaseMode === "postgres" || !!spreadsheetId,
   });
 }
 
@@ -93,68 +158,196 @@ export function useExerciseHistory(
 export function useBestSets(
   spreadsheetId: string,
   sheetName: string = "Sheet1",
-  days = 30
+  days = 30,
+  databaseMode: "sheets" | "postgres" = "sheets"
 ) {
   const { analytics } = useApiClients(spreadsheetId, sheetName);
 
   return useQuery({
-    queryKey: ["analytics", "bestSets", days, spreadsheetId, sheetName],
-    queryFn: () => analytics.getBestSets(days),
-    enabled: !!spreadsheetId,
+    queryKey: [
+      "analytics",
+      "bestSets",
+      days,
+      databaseMode,
+      spreadsheetId,
+      sheetName,
+    ],
+    queryFn: async () => {
+      if (databaseMode === "postgres") {
+        const workouts = await dbWorkoutsApi.getAll();
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - days);
+
+        const exerciseBestMap = new Map<string, any>();
+
+        workouts.forEach((workout) => {
+          if (new Date(workout.date) >= cutoffDate) {
+            workout.exercises.forEach((exercise) => {
+              exercise.sets.forEach((set) => {
+                if (!set.isWarmup) {
+                  const volume = set.weight * set.reps;
+                  const key = exercise.name;
+                  const current = exerciseBestMap.get(key);
+
+                  if (!current || volume > current.volume) {
+                    exerciseBestMap.set(key, {
+                      exerciseName: exercise.name,
+                      weight: set.weight,
+                      reps: set.reps,
+                      volume,
+                      date: workout.date,
+                    });
+                  }
+                }
+              });
+            });
+          }
+        });
+
+        return Array.from(exerciseBestMap.values());
+      }
+      return analytics.getBestSets(days);
+    },
+    enabled: databaseMode === "postgres" || !!spreadsheetId,
   });
 }
 
 export function useExerciseTrends(
   name: string,
   spreadsheetId: string,
-  sheetName: string = "Sheet1"
+  sheetName: string = "Sheet1",
+  databaseMode: "sheets" | "postgres" = "sheets"
 ) {
   const { analytics } = useApiClients(spreadsheetId, sheetName);
 
   return useQuery({
-    queryKey: ["analytics", "trends", name, spreadsheetId, sheetName],
+    queryKey: [
+      "analytics",
+      "trends",
+      name,
+      databaseMode,
+      spreadsheetId,
+      sheetName,
+    ],
     queryFn: () => analytics.getExerciseTrends(name),
-    enabled: !!name && !!spreadsheetId,
+    enabled: !!name && (databaseMode === "postgres" || !!spreadsheetId),
   });
 }
 
 export function useExerciseStats(
   name: string,
   spreadsheetId: string,
-  sheetName: string = "Sheet1"
+  sheetName: string = "Sheet1",
+  databaseMode: "sheets" | "postgres" = "sheets"
 ) {
   const { analytics } = useApiClients(spreadsheetId, sheetName);
 
   return useQuery({
-    queryKey: ["analytics", "stats", name, spreadsheetId, sheetName],
+    queryKey: [
+      "analytics",
+      "stats",
+      name,
+      databaseMode,
+      spreadsheetId,
+      sheetName,
+    ],
     queryFn: () => analytics.getExerciseStats(name),
-    enabled: !!name && !!spreadsheetId,
+    enabled: !!name && (databaseMode === "postgres" || !!spreadsheetId),
   });
 }
 
 export function useVolumeHistory(
   spreadsheetId: string,
-  sheetName: string = "Sheet1"
+  sheetName: string = "Sheet1",
+  databaseMode: "sheets" | "postgres" = "sheets"
 ) {
   const { analytics } = useApiClients(spreadsheetId, sheetName);
 
   return useQuery({
-    queryKey: ["analytics", "volumeHistory", spreadsheetId, sheetName],
-    queryFn: analytics.getVolumeHistory,
-    enabled: !!spreadsheetId,
+    queryKey: [
+      "analytics",
+      "volumeHistory",
+      databaseMode,
+      spreadsheetId,
+      sheetName,
+    ],
+    queryFn: async () => {
+      if (databaseMode === "postgres") {
+        const workouts = await dbWorkoutsApi.getAll();
+        const volumeByWeek = new Map<string, number>();
+
+        workouts.forEach((workout) => {
+          const week = getWeekNumber(workout.date);
+          const year = getYear(workout.date);
+          const key = `${year}-W${week}`;
+
+          let weekVolume = volumeByWeek.get(key) || 0;
+
+          workout.exercises.forEach((exercise) => {
+            exercise.sets.forEach((set) => {
+              if (!set.isWarmup) {
+                weekVolume += set.weight * set.reps;
+              }
+            });
+          });
+
+          volumeByWeek.set(key, weekVolume);
+        });
+
+        return Array.from(volumeByWeek.entries())
+          .map(([week, totalVolume]) => ({ week, totalVolume }))
+          .sort((a, b) => a.week.localeCompare(b.week));
+      }
+      return analytics.getVolumeHistory();
+    },
+    enabled: databaseMode === "postgres" || !!spreadsheetId,
   });
 }
 
 export function useSummary(
   spreadsheetId: string,
-  sheetName: string = "Sheet1"
+  sheetName: string = "Sheet1",
+  databaseMode: "sheets" | "postgres" = "sheets"
 ) {
   const { analytics } = useApiClients(spreadsheetId, sheetName);
 
   return useQuery({
-    queryKey: ["analytics", "summary", spreadsheetId, sheetName],
-    queryFn: analytics.getSummary,
-    enabled: !!spreadsheetId,
+    queryKey: ["analytics", "summary", databaseMode, spreadsheetId, sheetName],
+    queryFn: async () => {
+      if (databaseMode === "postgres") {
+        const workouts = await dbWorkoutsApi.getAll();
+        const exerciseSet = new Set<string>();
+        let totalSets = 0;
+        let totalVolume = 0;
+
+        workouts.forEach((workout) => {
+          workout.exercises.forEach((exercise) => {
+            exerciseSet.add(exercise.name);
+            exercise.sets.forEach((set) => {
+              if (!set.isWarmup) {
+                totalSets++;
+                totalVolume += set.weight * set.reps;
+              }
+            });
+          });
+        });
+
+        return {
+          totalWeeks: new Set(
+            workouts.map((w) => {
+              return `${getYear(w.date)}-W${getWeekNumber(w.date)}`;
+            })
+          ).size,
+          totalSessions: workouts.length,
+          totalSets,
+          totalVolume,
+          uniqueExercises: exerciseSet.size,
+          exerciseList: Array.from(exerciseSet).sort(),
+        };
+      }
+      return analytics.getSummary();
+    },
+    enabled: databaseMode === "postgres" || !!spreadsheetId,
   });
 }
 
@@ -246,12 +439,19 @@ export function useWorkoutLogSync(spreadsheetId: string, sheetName: string) {
   });
 }
 
-export function useAddWorkoutEntries(spreadsheetId: string, sheetName: string) {
+export function useAddWorkoutEntries(
+  spreadsheetId: string,
+  sheetName: string,
+  databaseMode: "sheets" | "postgres" = "sheets"
+) {
   const queryClient = useQueryClient();
   const { workoutLog } = useApiClients(spreadsheetId, sheetName);
 
   return useMutation({
-    mutationFn: workoutLog.addEntries,
+    mutationFn:
+      databaseMode === "postgres"
+        ? dbWorkoutsApi.addEntries
+        : workoutLog.addEntries,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["workout-log"] });
       queryClient.invalidateQueries({ queryKey: ["workouts"] });
@@ -260,6 +460,26 @@ export function useAddWorkoutEntries(spreadsheetId: string, sheetName: string) {
     },
     onError: (error) => {
       toast.error(`Failed to save: ${error.message}`);
+    },
+  });
+}
+
+export function useDeleteExercise(
+  databaseMode: "sheets" | "postgres" = "sheets"
+) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ date, exerciseId }: { date: string; exerciseId: string }) =>
+      databaseMode === "postgres"
+        ? dbWorkoutsApi.deleteExercise(date, exerciseId)
+        : Promise.reject(new Error("Delete only supported in postgres mode")),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["workouts"] });
+      toast.success("Exercise deleted!");
+    },
+    onError: (error) => {
+      toast.error(`Failed to delete: ${error.message}`);
     },
   });
 }
