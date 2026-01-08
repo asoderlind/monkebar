@@ -3,7 +3,6 @@ import { Hono } from "hono";
 import { cors } from "hono/cors";
 import { logger } from "hono/logger";
 import { auth } from "./auth.js";
-import { sheetsRoutes } from "./routes/sheets.js";
 import { workoutsRoutes } from "./routes/workouts.js";
 import { analyticsRoutes } from "./routes/analytics.js";
 import { exercisesRoutes } from "./routes/exercises.js";
@@ -31,7 +30,6 @@ app.on(["POST", "GET"], "/api/auth/**", (c) => {
 });
 
 // Routes
-app.route("/api/sheets", sheetsRoutes);
 app.route("/api/workouts", workoutsRoutes);
 app.route("/api/analytics", analyticsRoutes);
 app.route("/api/exercises", exercisesRoutes);

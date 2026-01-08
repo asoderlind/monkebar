@@ -38,8 +38,6 @@ interface UnsavedExerciseCardProps {
   onSave: () => void;
   onReset: () => void;
   isSaving: boolean;
-  spreadsheetId: string;
-  sheetName: string;
   showSaveButton?: boolean;
 }
 
@@ -53,8 +51,6 @@ export function UnsavedExerciseCard({
   onSave,
   onReset,
   isSaving,
-  spreadsheetId,
-  sheetName,
   showSaveButton = true,
 }: UnsavedExerciseCardProps) {
   const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
@@ -80,11 +76,7 @@ export function UnsavedExerciseCard({
     }, {} as Record<string, MuscleGroup>) || {};
 
   // Fetch exercise history
-  const { data: historyData } = useExerciseHistory(
-    exerciseName,
-    spreadsheetId,
-    sheetName
-  );
+  const { data: historyData } = useExerciseHistory(exerciseName);
 
   // Get last session data
   const lastSession =
