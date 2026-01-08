@@ -266,7 +266,7 @@ export function UnsavedExerciseCard({
                             : "text-muted-foreground"
                         }
                       >
-                        {isPositive ? "+" : ""}
+                        {isPositive && diffResult.displayValue !== "+" ? "+" : ""}
                         {diffResult.displayValue}
                         {isBodyweight || diffResult.isProgressiveOverload ? "" : "kg"}
                       </span>
@@ -349,7 +349,7 @@ export function UnsavedExerciseCard({
                                 : "text-muted-foreground"
                             }
                           >
-                            {isPositive ? "+" : ""}
+                            {isPositive && diffResult.displayValue !== "+" ? "+" : ""}
                             {diffResult.displayValue}
                             {isBodyweight || diffResult.isProgressiveOverload ? "" : "kg"}
                           </span>
