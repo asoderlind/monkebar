@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FileCheck, Layers } from "lucide-react";
+import { FileCheck, Layers, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAddWorkoutEntries, useWorkoutByDate } from "@/hooks/useWorkouts";
 import { useExercises } from "@/hooks/useExercises";
@@ -207,6 +207,7 @@ export function LogWorkoutView({
           isSaving={saveMutation.isPending}
           spreadsheetId={spreadsheetId}
           sheetName={sheetName}
+          showSaveButton={!supersetMode}
         />
 
         {supersetMode && (
@@ -234,7 +235,27 @@ export function LogWorkoutView({
               isSaving={saveMutation.isPending}
               spreadsheetId={spreadsheetId}
               sheetName={sheetName}
+              showSaveButton={false}
             />
+
+            {/* Save button for superset mode */}
+            <Button
+              className="w-full"
+              onClick={handleSave}
+              disabled={saveMutation.isPending || !unsavedExercise.name.trim()}
+            >
+              {saveMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 mr-2" />
+                  Save
+                </>
+              )}
+            </Button>
           </>
         )}
       </div>

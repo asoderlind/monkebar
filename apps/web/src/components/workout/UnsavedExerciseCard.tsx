@@ -40,6 +40,7 @@ interface UnsavedExerciseCardProps {
   isSaving: boolean;
   spreadsheetId: string;
   sheetName: string;
+  showSaveButton?: boolean;
 }
 
 export function UnsavedExerciseCard({
@@ -54,6 +55,7 @@ export function UnsavedExerciseCard({
   isSaving,
   spreadsheetId,
   sheetName,
+  showSaveButton = true,
 }: UnsavedExerciseCardProps) {
   const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
   const [modalState, setModalState] = useState<{
@@ -359,25 +361,27 @@ export function UnsavedExerciseCard({
           </div>
 
           {/* Save button */}
-          <div className="mt-4">
-            <Button
-              className="w-full"
-              onClick={onSave}
-              disabled={isSaving || !exerciseName.trim()}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save
-                </>
-              )}
-            </Button>
-          </div>
+          {showSaveButton && (
+            <div className="mt-4">
+              <Button
+                className="w-full"
+                onClick={onSave}
+                disabled={isSaving || !exerciseName.trim()}
+              >
+                {isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
