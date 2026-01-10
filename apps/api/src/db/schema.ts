@@ -148,9 +148,18 @@ export const exerciseMaster = pgTable(
 // Relations
 // ============================================================================
 
+export const usersRelations = relations(users, ({ many }) => ({
+  workoutSessions: many(workoutSessions),
+  exerciseMaster: many(exerciseMaster),
+}));
+
 export const workoutSessionsRelations = relations(
   workoutSessions,
-  ({ many }) => ({
+  ({ one, many }) => ({
+    user: one(users, {
+      fields: [workoutSessions.userId],
+      references: [users.id],
+    }),
     exercises: many(exercises),
   })
 );
@@ -167,6 +176,13 @@ export const setsRelations = relations(sets, ({ one }) => ({
   exercise: one(exercises, {
     fields: [sets.exerciseId],
     references: [exercises.id],
+  }),
+}));
+
+export const exerciseMasterRelations = relations(exerciseMaster, ({ one }) => ({
+  user: one(users, {
+    fields: [exerciseMaster.userId],
+    references: [users.id],
   }),
 }));
 
