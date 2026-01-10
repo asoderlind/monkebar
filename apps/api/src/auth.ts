@@ -2,6 +2,14 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { db } from "./db/index.js";
 import * as schema from "./db/schema.js";
+// import { seedDefaultExercisesForUser } from "./db/seed-exercises.js";
+
+/**
+ * TODO: Add hook to seed default exercises when a new user registers
+ * Call seedDefaultExercisesForUser(userId) after user creation
+ * Example: When implementing user registration endpoint, add:
+ *   await seedDefaultExercisesForUser(newUser.id);
+ */
 
 export const auth = betterAuth({
   database: drizzleAdapter(db, {

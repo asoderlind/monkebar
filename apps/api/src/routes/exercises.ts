@@ -4,7 +4,7 @@ import { z } from "zod";
 import { db } from "../db/index.js";
 import { exerciseMaster } from "../db/schema.js";
 import { requireAuth, type AuthContext } from "../lib/middleware.js";
-import { eq, isNull, or, sql } from "drizzle-orm";
+import { eq, isNull, or, sql, and } from "drizzle-orm";
 
 export const exercisesRoutes = new Hono<{ Variables: AuthContext }>();
 
@@ -38,10 +38,13 @@ const updateExerciseSchema = z.object({
  */
 exercisesRoutes.get("/", async (c) => {
   try {
+    const user = c.get("user");
     const exercises = await db
       .select()
       .from(exerciseMaster)
-      .where(isNull(exerciseMaster.deletedAt))
+      .where(
+        and(eq(exerciseMaster.userId, user.id), isNull(exerciseMaster.deletedAt))
+      )
       .orderBy(exerciseMaster.name);
 
     return c.json({
@@ -60,6 +63,7 @@ exercisesRoutes.get("/", async (c) => {
  */
 exercisesRoutes.get("/:id", async (c) => {
   try {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
     if (isNaN(id)) {
       return c.json({ success: false, error: "Invalid exercise ID" }, 400);
@@ -69,7 +73,11 @@ exercisesRoutes.get("/:id", async (c) => {
       .select()
       .from(exerciseMaster)
       .where(
-        sql`${exerciseMaster.id} = ${id} AND ${exerciseMaster.deletedAt} IS NULL`
+        and(
+          eq(exerciseMaster.id, id),
+          eq(exerciseMaster.userId, user.id),
+          isNull(exerciseMaster.deletedAt)
+        )
       );
 
     if (!exercise) {
@@ -95,14 +103,15 @@ exercisesRoutes.post(
   zValidator("json", createExerciseSchema),
   async (c) => {
     try {
+      const user = c.get("user");
       const body = c.req.valid("json");
 
-      // Check for case-insensitive duplicate names (excluding soft-deleted)
+      // Check for case-insensitive duplicate names for this user (excluding soft-deleted)
       const existingExercises = await db
         .select()
         .from(exerciseMaster)
         .where(
-          sql`LOWER(${exerciseMaster.name}) = LOWER(${body.name}) AND ${exerciseMaster.deletedAt} IS NULL`
+          sql`${exerciseMaster.userId} = ${user.id} AND LOWER(${exerciseMaster.name}) = LOWER(${body.name}) AND ${exerciseMaster.deletedAt} IS NULL`
         );
 
       if (existingExercises.length > 0) {
@@ -118,6 +127,7 @@ exercisesRoutes.post(
       const [newExercise] = await db
         .insert(exerciseMaster)
         .values({
+          userId: user.id,
           name: body.name,
           muscleGroup: body.muscleGroup,
         })
@@ -143,6 +153,7 @@ exercisesRoutes.put(
   zValidator("json", updateExerciseSchema),
   async (c) => {
     try {
+      const user = c.get("user");
       const id = parseInt(c.req.param("id"));
       if (isNaN(id)) {
         return c.json({ success: false, error: "Invalid exercise ID" }, 400);
@@ -150,25 +161,29 @@ exercisesRoutes.put(
 
       const body = c.req.valid("json");
 
-      // Check if exercise exists and is not deleted
+      // Check if exercise exists, is not deleted, and belongs to this user
       const [existingExercise] = await db
         .select()
         .from(exerciseMaster)
         .where(
-          sql`${exerciseMaster.id} = ${id} AND ${exerciseMaster.deletedAt} IS NULL`
+          and(
+            eq(exerciseMaster.id, id),
+            eq(exerciseMaster.userId, user.id),
+            isNull(exerciseMaster.deletedAt)
+          )
         );
 
       if (!existingExercise) {
         return c.json({ success: false, error: "Exercise not found" }, 404);
       }
 
-      // If name is being updated, check for case-insensitive duplicates
+      // If name is being updated, check for case-insensitive duplicates for this user
       if (body.name) {
         const duplicates = await db
           .select()
           .from(exerciseMaster)
           .where(
-            sql`${exerciseMaster.id} != ${id} AND LOWER(${exerciseMaster.name}) = LOWER(${body.name}) AND ${exerciseMaster.deletedAt} IS NULL`
+            sql`${exerciseMaster.id} != ${id} AND ${exerciseMaster.userId} = ${user.id} AND LOWER(${exerciseMaster.name}) = LOWER(${body.name}) AND ${exerciseMaster.deletedAt} IS NULL`
           );
 
         if (duplicates.length > 0) {
@@ -210,17 +225,22 @@ exercisesRoutes.put(
  */
 exercisesRoutes.delete("/:id", async (c) => {
   try {
+    const user = c.get("user");
     const id = parseInt(c.req.param("id"));
     if (isNaN(id)) {
       return c.json({ success: false, error: "Invalid exercise ID" }, 400);
     }
 
-    // Check if exercise exists and is not already deleted
+    // Check if exercise exists, is not already deleted, and belongs to this user
     const [existingExercise] = await db
       .select()
       .from(exerciseMaster)
       .where(
-        sql`${exerciseMaster.id} = ${id} AND ${exerciseMaster.deletedAt} IS NULL`
+        and(
+          eq(exerciseMaster.id, id),
+          eq(exerciseMaster.userId, user.id),
+          isNull(exerciseMaster.deletedAt)
+        )
       );
 
     if (!existingExercise) {

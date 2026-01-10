@@ -38,6 +38,7 @@ analyticsRoutes.get(
   ),
   async (c) => {
     try {
+      const user = c.get("user");
       const { days: daysStr } = c.req.valid("query");
       const days = parseInt(daysStr, 10);
 
@@ -50,7 +51,12 @@ analyticsRoutes.get(
       const recentSessions = await db
         .select()
         .from(workoutSessions)
-        .where(gte(workoutSessions.date, cutoffStr))
+        .where(
+          and(
+            eq(workoutSessions.userId, user.id),
+            gte(workoutSessions.date, cutoffStr)
+          )
+        )
         .orderBy(desc(workoutSessions.date));
 
       const bestSets: Record<string, BestSet> = {};
@@ -111,12 +117,14 @@ analyticsRoutes.get(
  */
 analyticsRoutes.get("/exercise/:name/trends", async (c) => {
   try {
+    const user = c.get("user");
     const exerciseName = decodeURIComponent(c.req.param("name"));
 
     // Get all sessions that have this exercise
     const allSessions = await db
       .select()
       .from(workoutSessions)
+      .where(eq(workoutSessions.userId, user.id))
       .orderBy(workoutSessions.date);
 
     const trends: TrendDataPoint[] = [];
@@ -186,6 +194,7 @@ analyticsRoutes.get("/exercise/:name/trends", async (c) => {
  */
 analyticsRoutes.get("/exercise/:name/stats", async (c) => {
   try {
+    const user = c.get("user");
     const exerciseName = decodeURIComponent(c.req.param("name"));
 
     let currentPR: BestSet | null = null;
@@ -202,6 +211,7 @@ analyticsRoutes.get("/exercise/:name/stats", async (c) => {
     const allSessions = await db
       .select()
       .from(workoutSessions)
+      .where(eq(workoutSessions.userId, user.id))
       .orderBy(workoutSessions.date);
 
     const recentSessions = allSessions.filter(
@@ -345,9 +355,11 @@ analyticsRoutes.get("/exercise/:name/stats", async (c) => {
  */
 analyticsRoutes.get("/volume-history", async (c) => {
   try {
+    const user = c.get("user");
     const allSessions = await db
       .select()
       .from(workoutSessions)
+      .where(eq(workoutSessions.userId, user.id))
       .orderBy(workoutSessions.date);
 
     const volumeHistory: VolumeHistory[] = [];
@@ -397,8 +409,21 @@ analyticsRoutes.get("/volume-history", async (c) => {
  */
 analyticsRoutes.get("/summary", async (c) => {
   try {
-    const allSessions = await db.select().from(workoutSessions);
-    const allExercises = await db.select().from(exercises);
+    const user = c.get("user");
+    const allSessions = await db
+      .select()
+      .from(workoutSessions)
+      .where(eq(workoutSessions.userId, user.id));
+
+    // Get all exercises for this user's sessions
+    const sessionIds = allSessions.map((s) => s.id);
+    const allExercises =
+      sessionIds.length > 0
+        ? await db
+            .select()
+            .from(exercises)
+            .where(sql`${exercises.sessionId} = ANY(${sessionIds})`)
+        : [];
 
     const exerciseSet = new Set<string>();
     let totalSets = 0;

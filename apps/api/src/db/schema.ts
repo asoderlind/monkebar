@@ -73,6 +73,9 @@ export const workoutSessions = pgTable(
   "workout_sessions",
   {
     id: serial("id").primaryKey(),
+    userId: varchar("user_id", { length: 36 })
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
     weekNumber: integer("week_number").notNull(),
     dayOfWeek: varchar("day_of_week", { length: 20 }).notNull(),
     date: date("date"),
@@ -80,7 +83,11 @@ export const workoutSessions = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
-    uniqueIndex("session_unique_idx").on(table.weekNumber, table.dayOfWeek),
+    uniqueIndex("session_unique_idx").on(
+      table.userId,
+      table.weekNumber,
+      table.dayOfWeek
+    ),
   ]
 );
 
@@ -120,13 +127,22 @@ export const sets = pgTable("sets", {
 // Exercise Master List - Normalized exercise names
 // ============================================================================
 
-export const exerciseMaster = pgTable("exercise_master", {
-  id: serial("id").primaryKey(),
-  name: varchar("name", { length: 255 }).notNull().unique(),
-  muscleGroup: varchar("muscle_group", { length: 100 }).notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  deletedAt: timestamp("deleted_at"),
-});
+export const exerciseMaster = pgTable(
+  "exercise_master",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id", { length: 36 })
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    muscleGroup: varchar("muscle_group", { length: 100 }).notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at"),
+  },
+  (table) => [
+    uniqueIndex("exercise_user_name_idx").on(table.userId, table.name),
+  ]
+);
 
 // ============================================================================
 // Relations

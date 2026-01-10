@@ -43,6 +43,13 @@
       "when": 1736401000000,
       "tag": "0005_add_exercise_grouping",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1768054705319,
+      "tag": "0006_public_random",
+      "breakpoints": true
     }
   ]
 }
