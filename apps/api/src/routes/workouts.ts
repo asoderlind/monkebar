@@ -33,6 +33,7 @@ workoutsRoutes.get("/db", async (c) => {
     const sessions = await db
       .select()
       .from(workoutSessions)
+      .where(eq(workoutSessions.userId, user.id))
       .orderBy(desc(workoutSessions.date));
 
     // Fetch exercises and sets for each session
@@ -130,7 +131,10 @@ workoutsRoutes.post(
 
         // Check if workout session already exists for this date
         const existingSession = await db.query.workoutSessions.findFirst({
-          where: eq(workoutSessions.date, workout.date),
+          where: and(
+            eq(workoutSessions.userId, user.id),
+            eq(workoutSessions.date, workout.date)
+          ),
         });
 
         let sessionId: number;
@@ -158,6 +162,7 @@ workoutsRoutes.post(
           const [newSession] = await db
             .insert(workoutSessions)
             .values({
+              userId: user.id,
               weekNumber,
               dayOfWeek: workout.dayOfWeek,
               date: workout.date,
@@ -222,8 +227,10 @@ workoutsRoutes.delete("/db", async (c) => {
   try {
     const user = c.get("user");
 
-    // Delete all workout sessions (cascade will handle exercises and sets)
-    await db.delete(workoutSessions);
+    // Delete all workout sessions for this user (cascade will handle exercises and sets)
+    await db
+      .delete(workoutSessions)
+      .where(eq(workoutSessions.userId, user.id));
 
     return c.json({
       success: true,
@@ -287,13 +294,14 @@ workoutsRoutes.post(
 
         // Find or create workout session
         let session = await db.query.workoutSessions.findFirst({
-          where: eq(workoutSessions.date, date),
+          where: and(eq(workoutSessions.userId, user.id), eq(workoutSessions.date, date)),
         });
 
         if (!session) {
           const [newSession] = await db
             .insert(workoutSessions)
             .values({
+              userId: user.id,
               weekNumber,
               dayOfWeek,
               date,
@@ -377,6 +385,25 @@ workoutsRoutes.delete("/db/:date/exercise/:exerciseId", async (c) => {
     const user = c.get("user");
     const date = c.req.param("date");
     const exerciseId = c.req.param("exerciseId");
+
+    // Verify the exercise belongs to this user by checking the workout session
+    const exercise = await db.query.exercises.findFirst({
+      where: eq(exercises.id, parseInt(exerciseId)),
+      with: {
+        session: true,
+      },
+    });
+
+    if (!exercise) {
+      return c.json({ success: false, error: "Exercise not found" }, 404);
+    }
+
+    if (exercise.session.userId !== user.id) {
+      return c.json(
+        { success: false, error: "Unauthorized to delete this exercise" },
+        403
+      );
+    }
 
     // Delete the exercise (cascade will handle sets)
     await db.delete(exercises).where(eq(exercises.id, parseInt(exerciseId)));
