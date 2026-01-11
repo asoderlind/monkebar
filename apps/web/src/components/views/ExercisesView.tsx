@@ -8,6 +8,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -36,10 +37,11 @@ export function ExercisesView() {
   const [formData, setFormData] = useState({
     name: "",
     muscleGroup: "" as MuscleGroup | "",
+    notes: "",
   });
 
   const resetForm = () => {
-    setFormData({ name: "", muscleGroup: "" });
+    setFormData({ name: "", muscleGroup: "", notes: "" });
     setSelectedExercise(null);
   };
 
@@ -53,6 +55,7 @@ export function ExercisesView() {
     setFormData({
       name: exercise.name,
       muscleGroup: (exercise.muscleGroup as MuscleGroup) || "",
+      notes: exercise.notes || "",
     });
     setIsEditDialogOpen(true);
   };
@@ -69,6 +72,7 @@ export function ExercisesView() {
     await createMutation.mutateAsync({
       name: formData.name.trim(),
       muscleGroup: formData.muscleGroup,
+      notes: formData.notes.trim() || undefined,
     });
 
     setIsAddDialogOpen(false);
@@ -85,6 +89,7 @@ export function ExercisesView() {
       data: {
         name: formData.name.trim(),
         muscleGroup: formData.muscleGroup,
+        notes: formData.notes.trim() || undefined,
       },
     });
 
@@ -195,10 +200,17 @@ export function ExercisesView() {
                       .map((exercise) => (
                         <div
                           key={exercise.id}
-                          className="flex items-center justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+                          className="flex items-start justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                         >
-                          <div className="font-medium">{exercise.name}</div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex-1">
+                            <div className="font-medium">{exercise.name}</div>
+                            {exercise.notes && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                {exercise.notes}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 ml-2">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -278,6 +290,23 @@ export function ExercisesView() {
                   ))}
                 </select>
               </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor="notes"
+                  className="text-sm font-medium leading-none"
+                >
+                  Notes
+                </label>
+                <Textarea
+                  id="notes"
+                  placeholder="Add any notes about this exercise (e.g., form cues, variations, equipment settings)"
+                  value={formData.notes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
+                  rows={3}
+                />
+              </div>
             </div>
             <DialogFooter>
               <Button
@@ -349,6 +378,23 @@ export function ExercisesView() {
                     </option>
                   ))}
                 </select>
+              </div>
+              <div className="space-y-2">
+                <label
+                  htmlFor="edit-notes"
+                  className="text-sm font-medium leading-none"
+                >
+                  Notes
+                </label>
+                <Textarea
+                  id="edit-notes"
+                  placeholder="Add any notes about this exercise (e.g., form cues, variations, equipment settings)"
+                  value={formData.notes}
+                  onChange={(e) =>
+                    setFormData({ ...formData, notes: e.target.value })
+                  }
+                  rows={3}
+                />
               </div>
             </div>
             <DialogFooter>

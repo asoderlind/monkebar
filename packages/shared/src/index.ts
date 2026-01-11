@@ -270,6 +270,7 @@ export interface ExerciseMaster {
   id: number;
   name: string;
   muscleGroup: MuscleGroup;
+  notes: string | null;
   createdAt: Date;
   deletedAt: Date | null;
 }
@@ -277,6 +278,7 @@ export interface ExerciseMaster {
 export interface NewExerciseMaster {
   name: string;
   muscleGroup: MuscleGroup;
+  notes?: string;
 }
 
 /**

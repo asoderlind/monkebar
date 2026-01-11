@@ -5,6 +5,7 @@ import { db } from "../db/index.js";
 import { exerciseMaster } from "../db/schema.js";
 import { requireAuth, type AuthContext } from "../lib/middleware.js";
 import { eq, isNull, or, sql, and } from "drizzle-orm";
+import { MUSCLE_GROUPS } from "@monke-bar/shared";
 
 export const exercisesRoutes = new Hono<{ Variables: AuthContext }>();
 
@@ -14,22 +15,14 @@ exercisesRoutes.use("*", requireAuth);
 // Validation schemas
 const createExerciseSchema = z.object({
   name: z.string().min(1).max(255),
-  muscleGroup: z.enum([
-    "Chest",
-    "Triceps",
-    "Shoulders",
-    "Biceps",
-    "Back",
-    "Legs",
-    "Core",
-  ]),
+  muscleGroup: z.enum(MUSCLE_GROUPS as [string, ...string[]]),
+  notes: z.string().optional(),
 });
 
 const updateExerciseSchema = z.object({
   name: z.string().min(1).max(255).optional(),
-  muscleGroup: z
-    .enum(["Chest", "Triceps", "Shoulders", "Biceps", "Back", "Legs", "Core"])
-    .optional(),
+  muscleGroup: z.enum(MUSCLE_GROUPS as [string, ...string[]]).optional(),
+  notes: z.string().optional(),
 });
 
 /**
@@ -130,6 +123,7 @@ exercisesRoutes.post(
           userId: user.id,
           name: body.name,
           muscleGroup: body.muscleGroup,
+          notes: body.notes,
         })
         .returning();
 
@@ -204,6 +198,7 @@ exercisesRoutes.put(
           ...(body.muscleGroup !== undefined && {
             muscleGroup: body.muscleGroup,
           }),
+          ...(body.notes !== undefined && { notes: body.notes }),
         })
         .where(eq(exerciseMaster.id, id))
         .returning();

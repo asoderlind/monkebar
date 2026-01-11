@@ -136,6 +136,7 @@ export const exerciseMaster = pgTable(
       .notNull(),
     name: varchar("name", { length: 255 }).notNull(),
     muscleGroup: varchar("muscle_group", { length: 100 }).notNull(),
+    notes: text("notes"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     deletedAt: timestamp("deleted_at"),
   },
