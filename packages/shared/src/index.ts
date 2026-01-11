@@ -122,6 +122,7 @@ export interface BestSet {
   reps: number;
   volume: number; // weight * reps
   date: string;
+  muscleGroup: string; // Muscle group from exercise master
 }
 
 /**

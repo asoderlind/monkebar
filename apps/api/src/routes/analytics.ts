@@ -9,7 +9,7 @@ import type {
   VolumeHistory,
 } from "@monke-bar/shared";
 import { db } from "../db/index.js";
-import { workoutSessions, exercises, sets } from "../db/schema.js";
+import { workoutSessions, exercises, sets, exerciseMaster } from "../db/schema.js";
 import { eq, and, desc, sql, gte, inArray } from "drizzle-orm";
 
 export const analyticsRoutes = new Hono<{ Variables: AuthContext }>();
@@ -61,6 +61,18 @@ analyticsRoutes.get(
 
       const bestSets: Record<string, BestSet> = {};
 
+      // Fetch all exercise master data for this user to get muscle groups
+      const exerciseMasterData = await db
+        .select()
+        .from(exerciseMaster)
+        .where(eq(exerciseMaster.userId, user.id));
+
+      // Create a map of exercise name to muscle group
+      const muscleGroupMap = new Map<string, string>();
+      exerciseMasterData.forEach((em) => {
+        muscleGroupMap.set(em.name.toLowerCase(), em.muscleGroup);
+      });
+
       // Fetch exercises and sets for each session
       for (const session of recentSessions) {
         const sessionExercises = await db
@@ -82,6 +94,9 @@ analyticsRoutes.get(
             const volume = calculateVolume(weight, set.reps);
             const current = bestSets[exercise.name];
 
+            // Get muscle group for this exercise
+            const muscleGroup = muscleGroupMap.get(exercise.name.toLowerCase()) || "Other";
+
             // Best by weight first, then by reps
             if (
               !current ||
@@ -94,6 +109,7 @@ analyticsRoutes.get(
                 reps: set.reps,
                 volume,
                 date: session.date || "",
+                muscleGroup,
               };
             }
           }
@@ -202,6 +218,20 @@ analyticsRoutes.get("/exercise/:name/stats", async (c) => {
     const trends: TrendDataPoint[] = [];
     let totalSessions = 0;
 
+    // Get muscle group for this exercise
+    const exerciseMasterData = await db
+      .select()
+      .from(exerciseMaster)
+      .where(
+        and(
+          eq(exerciseMaster.userId, user.id),
+          sql`LOWER(${exerciseMaster.name}) = LOWER(${exerciseName})`
+        )
+      )
+      .limit(1);
+
+    const muscleGroup = exerciseMasterData.length > 0 ? exerciseMasterData[0].muscleGroup : "Other";
+
     // Get the last 30 days cutoff
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - 30);
@@ -250,6 +280,7 @@ analyticsRoutes.get("/exercise/:name/stats", async (c) => {
             reps: set.reps,
             volume,
             date: session.date || "",
+            muscleGroup,
           };
 
           if (
@@ -319,6 +350,7 @@ analyticsRoutes.get("/exercise/:name/stats", async (c) => {
               reps: set.reps,
               volume: calculateVolume(weight, set.reps),
               date: session.date || "",
+              muscleGroup,
             };
           }
         }
@@ -333,6 +365,7 @@ analyticsRoutes.get("/exercise/:name/stats", async (c) => {
         reps: 0,
         volume: 0,
         date: "",
+        muscleGroup,
       },
       last30DaysBest,
       trend: trends,

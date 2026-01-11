@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   useBestSets,
   useSummary,
@@ -20,12 +20,55 @@ import {
 } from "recharts";
 import { Trophy, TrendingUp, Dumbbell, ChevronDown } from "lucide-react";
 
+// Muscle group colors - defined here to ensure Tailwind picks them up
+const getMuscleGroupColor = (muscleGroup: string): string => {
+  switch (muscleGroup) {
+    case "Chest":
+      return "bg-red-500/20 text-red-700 dark:text-red-400";
+    case "Triceps":
+      return "bg-orange-500/20 text-orange-700 dark:text-orange-400";
+    case "Shoulders":
+      return "bg-yellow-500/20 text-yellow-700 dark:text-yellow-400";
+    case "Biceps":
+      return "bg-green-500/20 text-green-700 dark:text-green-400";
+    case "Back":
+      return "bg-blue-500/20 text-blue-700 dark:text-blue-400";
+    case "Legs":
+      return "bg-purple-500/20 text-purple-700 dark:text-purple-400";
+    case "Core":
+      return "bg-pink-500/20 text-pink-700 dark:text-pink-400";
+    default:
+      return "bg-gray-500/20 text-gray-700 dark:text-gray-400";
+  }
+};
+
 export function AnalyticsView() {
   const { data: bestSets, isLoading: loadingBestSets } = useBestSets(30);
   const { data: summary, isLoading: loadingSummary } = useSummary();
   const { data: volumeHistory } = useVolumeHistory();
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const { data: exerciseStats } = useExerciseStats(selectedExercise || "");
+
+  // Group best sets by muscle group
+  const groupedBestSets = useMemo(() => {
+    if (!bestSets) return {};
+    
+    const groups: Record<string, typeof bestSets> = {};
+    bestSets.forEach((set) => {
+      const muscleGroup = set.muscleGroup || "Other";
+      if (!groups[muscleGroup]) {
+        groups[muscleGroup] = [];
+      }
+      groups[muscleGroup].push(set);
+    });
+    
+    // Sort each group by weight descending
+    Object.keys(groups).forEach((key) => {
+      groups[key].sort((a, b) => b.weight - a.weight || b.reps - a.reps);
+    });
+    
+    return groups;
+  }, [bestSets]);
 
   if (loadingBestSets || loadingSummary) {
     return (
@@ -142,7 +185,7 @@ export function AnalyticsView() {
         </Card>
       )}
 
-      {/* Best Sets (Last 4 Weeks) */}
+      {/* Best Sets (Last 4 Weeks) - Grouped by Muscle */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
@@ -152,39 +195,57 @@ export function AnalyticsView() {
         </CardHeader>
         <CardContent>
           {bestSets && bestSets.length > 0 ? (
-            <div className="space-y-2">
-              {bestSets.slice(0, 10).map((best, idx) => (
-                <button
-                  key={best.exerciseName}
-                  onClick={() =>
-                    setSelectedExercise(
-                      selectedExercise === best.exerciseName
-                        ? null
-                        : best.exerciseName
-                    )
-                  }
-                  className="w-full flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-bold text-muted-foreground">
-                      #{idx + 1}
+            <div className="space-y-4">
+              {Object.entries(groupedBestSets).map(([muscleGroup, sets]) => (
+                <div key={muscleGroup}>
+                  {/* Muscle Group Header */}
+                  <div className="flex items-center gap-2 mb-2">
+                    <span
+                      className={`text-xs font-semibold px-2 py-1 rounded ${getMuscleGroupColor(
+                        muscleGroup
+                      )}`}
+                    >
+                      {muscleGroup}
                     </span>
-                    <div>
-                      <p className="font-medium text-sm">{best.exerciseName}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {best.date}
-                      </p>
-                    </div>
+                    <div className="flex-1 h-px bg-border" />
                   </div>
-                  <div className="text-right">
-                    <p className="font-bold">
-                      {best.weight}kg × {best.reps}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {best.volume.toLocaleString()} vol
-                    </p>
+
+                  {/* Exercises in this muscle group */}
+                  <div className="space-y-2">
+                    {sets.map((best) => (
+                      <button
+                        key={best.exerciseName}
+                        onClick={() =>
+                          setSelectedExercise(
+                            selectedExercise === best.exerciseName
+                              ? null
+                              : best.exerciseName
+                          )
+                        }
+                        className="w-full flex items-center justify-between p-2 rounded-lg bg-secondary/50 hover:bg-secondary transition-colors text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div>
+                            <p className="font-medium text-sm">
+                              {best.exerciseName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {best.date}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold">
+                            {best.weight}kg × {best.reps}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {best.volume.toLocaleString()} vol
+                          </p>
+                        </div>
+                      </button>
+                    ))}
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           ) : (
