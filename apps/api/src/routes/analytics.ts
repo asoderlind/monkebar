@@ -10,7 +10,7 @@ import type {
 } from "@monke-bar/shared";
 import { db } from "../db/index.js";
 import { workoutSessions, exercises, sets } from "../db/schema.js";
-import { eq, and, desc, sql, gte } from "drizzle-orm";
+import { eq, and, desc, sql, gte, inArray } from "drizzle-orm";
 
 export const analyticsRoutes = new Hono<{ Variables: AuthContext }>();
 
@@ -351,7 +351,7 @@ analyticsRoutes.get("/exercise/:name/stats", async (c) => {
 
 /**
  * GET /api/analytics/volume-history
- * Get volume history across all workouts
+ * Get volume history aggregated by week
  */
 analyticsRoutes.get("/volume-history", async (c) => {
   try {
@@ -362,9 +362,20 @@ analyticsRoutes.get("/volume-history", async (c) => {
       .where(eq(workoutSessions.userId, user.id))
       .orderBy(workoutSessions.date);
 
-    const volumeHistory: VolumeHistory[] = [];
+    // Group by ISO week (YYYY-Www format)
+    const weeklyData: Record<string, { totalVolume: number; exerciseCount: number }> = {};
 
     for (const session of allSessions) {
+      if (!session.date) continue;
+
+      // Calculate ISO week (YYYY-Www format)
+      const date = new Date(session.date);
+      const year = date.getFullYear();
+      const startOfYear = new Date(year, 0, 1);
+      const days = Math.floor((date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
+      const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+      const weekKey = `${year}-W${weekNumber}`;
+
       const sessionExercises = await db
         .select()
         .from(exercises)
@@ -386,12 +397,19 @@ analyticsRoutes.get("/volume-history", async (c) => {
         }, 0);
       }
 
-      volumeHistory.push({
-        date: session.date || "",
-        totalVolume,
-        exerciseCount: sessionExercises.length,
-      });
+      if (!weeklyData[weekKey]) {
+        weeklyData[weekKey] = { totalVolume: 0, exerciseCount: 0 };
+      }
+      weeklyData[weekKey].totalVolume += totalVolume;
+      weeklyData[weekKey].exerciseCount += sessionExercises.length;
     }
+
+    // Convert to array format
+    const volumeHistory = Object.entries(weeklyData).map(([week, data]) => ({
+      week,
+      totalVolume: data.totalVolume,
+      exerciseCount: data.exerciseCount,
+    }));
 
     return c.json({
       success: true,
@@ -422,7 +440,7 @@ analyticsRoutes.get("/summary", async (c) => {
         ? await db
             .select()
             .from(exercises)
-            .where(sql`${exercises.sessionId} = ANY(${sessionIds})`)
+            .where(inArray(exercises.sessionId, sessionIds))
         : [];
 
     const exerciseSet = new Set<string>();

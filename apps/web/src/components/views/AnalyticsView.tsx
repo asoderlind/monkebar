@@ -5,7 +5,6 @@ import {
   useVolumeHistory,
   useExerciseStats,
 } from "@/hooks/useWorkouts";
-import { getWeekNumber, getYear } from "@monke-bar/shared";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,35 +37,21 @@ export function AnalyticsView() {
     );
   }
 
-  // Prepare volume chart data - group by week
+  // Prepare volume chart data - data is already grouped by week from API
   const volumeChartData = volumeHistory
     ? volumeHistory
         .map((item) => {
-          // Handle different data formats from sheets vs postgres
-          if ("week" in item && "totalVolume" in item) {
-            // Postgres format: { week: "2026-W2", totalVolume: 12345 }
-            const week = item.week as string;
-            const [year, weekNum] = week.split("-W");
-            return {
-              week: `W${weekNum}`,
-              year: parseInt(year),
-              weekNumber: parseInt(weekNum),
-              volume: item.totalVolume,
-            };
-          } else {
-            // Sheets format: { date: "2026-01-05", totalVolume: 12345 }
-            const weekNumber = getWeekNumber((item as any).date);
-            const year = getYear((item as any).date);
-            return {
-              week: `W${weekNumber}`,
-              year,
-              weekNumber,
-              volume: (item as any).totalVolume,
-            };
-          }
+          // API returns format: { week: "2026-W2", totalVolume: 12345 }
+          const [year, weekNum] = item.week.split("-W");
+          return {
+            week: `W${weekNum}`,
+            year: parseInt(year),
+            weekNumber: parseInt(weekNum),
+            volume: item.totalVolume,
+          };
         })
         .sort((a, b) => a.year - b.year || a.weekNumber - b.weekNumber)
-        .slice(-8)
+        .slice(-8) // Show last 8 weeks
     : [];
 
   return (

@@ -147,10 +147,10 @@ export interface ExerciseStats {
 }
 
 /**
- * Volume history for overall progress tracking
+ * Volume history for overall progress tracking (aggregated by week)
  */
 export interface VolumeHistory {
-  date: string;
+  week: string; // ISO week format: YYYY-Www (e.g., "2026-W2")
   totalVolume: number;
   exerciseCount: number;
 }
