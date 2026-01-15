@@ -31,6 +31,7 @@ export function SetInputModal({
   }, [value, open]);
 
   const increment = type === "weight" ? 2.5 : 1;
+  const smallIncrement = type === "weight" ? 0.25 : 1;
 
   const handleIncrement = () => {
     setCurrentValue((prev) => prev + increment);
@@ -38,6 +39,14 @@ export function SetInputModal({
 
   const handleDecrement = () => {
     setCurrentValue((prev) => Math.max(0, prev - increment));
+  };
+
+  const handleSmallIncrement = () => {
+    setCurrentValue((prev) => prev + smallIncrement);
+  };
+
+  const handleSmallDecrement = () => {
+    setCurrentValue((prev) => Math.max(0, prev - smallIncrement));
   };
 
   const handleAccept = () => {
@@ -59,6 +68,16 @@ export function SetInputModal({
           </DialogTitle>
         </DialogHeader>
         <div className="flex items-center justify-center gap-4 py-8">
+          {type === "weight" && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleSmallDecrement}
+              className="h-8 w-8"
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+          )}
           <Button
             variant="outline"
             size="icon"
@@ -68,7 +87,7 @@ export function SetInputModal({
             <Minus className="h-6 w-6" />
           </Button>
           <div className="text-4xl font-bold w-24 text-center">
-            {type === "weight" ? currentValue.toFixed(1) : currentValue}
+            {type === "weight" ? currentValue.toFixed(2) : currentValue}
           </div>
           <Button
             variant="outline"
@@ -78,6 +97,16 @@ export function SetInputModal({
           >
             <Plus className="h-6 w-6" />
           </Button>
+          {type === "weight" && (
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleSmallIncrement}
+              className="h-8 w-8"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={handleCancel}>
