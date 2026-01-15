@@ -21,13 +21,13 @@ export type DayOfWeek =
 // ============================================================================
 
 const DAYS_OF_WEEK_ARRAY: DayOfWeek[] = [
-  "Sunday",
   "Monday",
   "Tuesday",
   "Wednesday",
   "Thursday",
   "Friday",
   "Saturday",
+  "Sunday",
 ];
 
 /**
@@ -35,19 +35,26 @@ const DAYS_OF_WEEK_ARRAY: DayOfWeek[] = [
  */
 export function getDayOfWeek(date: string | Date): DayOfWeek {
   const d = typeof date === "string" ? new Date(date) : date;
-  return DAYS_OF_WEEK_ARRAY[d.getDay()];
+  // JavaScript's getDay() returns 0 for Sunday, 1 for Monday, etc.
+  // We want Monday to be 0, so we adjust: (getDay() + 6) % 7
+  const dayIndex = (d.getDay() + 6) % 7;
+  return DAYS_OF_WEEK_ARRAY[dayIndex];
 }
 
 /**
  * Get the ISO week number from a date string (YYYY-MM-DD) or Date object
+ * ISO 8601: weeks start on Monday, week 1 contains the first Thursday
  */
 export function getWeekNumber(date: string | Date): number {
   const d = typeof date === "string" ? new Date(date) : date;
-  const startOfYear = new Date(d.getFullYear(), 0, 1);
-  const days = Math.floor(
-    (d.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000)
-  );
-  return Math.ceil((days + startOfYear.getDay() + 1) / 7);
+  const target = new Date(d.valueOf());
+  const dayNr = (d.getDay() + 6) % 7; // Monday = 0, Sunday = 6
+  target.setDate(target.getDate() - dayNr + 3); // Thursday of current week
+  const firstThursday = new Date(target.getFullYear(), 0, 4); // First Thursday of year
+  const dayNrFirstThursday = (firstThursday.getDay() + 6) % 7;
+  firstThursday.setDate(firstThursday.getDate() - dayNrFirstThursday + 3);
+  const weekNumber = 1 + Math.round((target.getTime() - firstThursday.getTime()) / 86400000 / 7);
+  return weekNumber;
 }
 
 /**
@@ -154,6 +161,7 @@ export interface VolumeHistory {
   week: string; // ISO week format: YYYY-Www (e.g., "2026-W2")
   totalVolume: number;
   exerciseCount: number;
+  muscleGroups: Record<string, number>; // muscle group name -> volume
 }
 
 // ============================================================================

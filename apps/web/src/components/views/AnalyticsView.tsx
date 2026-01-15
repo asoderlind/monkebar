@@ -42,6 +42,28 @@ const getMuscleGroupColor = (muscleGroup: string): string => {
   }
 };
 
+// Muscle group chart colors for recharts
+const getMuscleGroupChartColor = (muscleGroup: string): string => {
+  switch (muscleGroup) {
+    case "Chest":
+      return "#ef4444";
+    case "Triceps":
+      return "#f97316";
+    case "Shoulders":
+      return "#eab308";
+    case "Biceps":
+      return "#22c55e";
+    case "Back":
+      return "#3b82f6";
+    case "Legs":
+      return "#a855f7";
+    case "Core":
+      return "#ec4899";
+    default:
+      return "#6b7280";
+  }
+};
+
 export function AnalyticsView() {
   const { data: bestSets, isLoading: loadingBestSets } = useBestSets(30);
   const { data: summary, isLoading: loadingSummary } = useSummary();
@@ -52,7 +74,7 @@ export function AnalyticsView() {
   // Group best sets by muscle group
   const groupedBestSets = useMemo(() => {
     if (!bestSets) return {};
-    
+
     const groups: Record<string, typeof bestSets> = {};
     bestSets.forEach((set) => {
       const muscleGroup = set.muscleGroup || "Other";
@@ -61,14 +83,63 @@ export function AnalyticsView() {
       }
       groups[muscleGroup].push(set);
     });
-    
+
     // Sort each group by weight descending
     Object.keys(groups).forEach((key) => {
       groups[key].sort((a, b) => b.weight - a.weight || b.reps - a.reps);
     });
-    
+
     return groups;
   }, [bestSets]);
+
+  // Prepare volume chart data - data is already grouped by week from API
+  const volumeChartData = useMemo(() => {
+    if (!volumeHistory || volumeHistory.length === 0) {
+      return { data: [], muscleGroups: [], hasMuscleGroupData: false };
+    }
+
+    const sorted = volumeHistory
+      .map((item) => {
+        const [year, weekNum] = item.week.split("-W");
+        return {
+          week: `W${weekNum}`,
+          year: parseInt(year),
+          weekNumber: parseInt(weekNum),
+          volume: item.totalVolume,
+          muscleGroups: item.muscleGroups || {},
+        };
+      })
+      .sort((a, b) => a.year - b.year || a.weekNumber - b.weekNumber)
+      .slice(-8); // Show last 8 weeks
+
+    // Get all unique muscle groups across all weeks
+    const muscleGroupSet = new Set<string>();
+    sorted.forEach((item) => {
+      if (item.muscleGroups && Object.keys(item.muscleGroups).length > 0) {
+        Object.keys(item.muscleGroups).forEach((mg) => muscleGroupSet.add(mg));
+      }
+    });
+    const muscleGroups = Array.from(muscleGroupSet).sort();
+    const hasMuscleGroupData = muscleGroups.length > 0;
+
+    // Transform data to include muscle group volumes as separate keys
+    const data = sorted.map((item) => {
+      const transformed: any = {
+        week: item.week,
+        year: item.year,
+        weekNumber: item.weekNumber,
+        volume: item.volume, // Keep total volume for fallback
+      };
+      if (hasMuscleGroupData) {
+        muscleGroups.forEach((mg) => {
+          transformed[mg] = (item.muscleGroups && item.muscleGroups[mg]) || 0;
+        });
+      }
+      return transformed;
+    });
+
+    return { data, muscleGroups, hasMuscleGroupData };
+  }, [volumeHistory]);
 
   if (loadingBestSets || loadingSummary) {
     return (
@@ -79,23 +150,6 @@ export function AnalyticsView() {
       </div>
     );
   }
-
-  // Prepare volume chart data - data is already grouped by week from API
-  const volumeChartData = volumeHistory
-    ? volumeHistory
-        .map((item) => {
-          // API returns format: { week: "2026-W2", totalVolume: 12345 }
-          const [year, weekNum] = item.week.split("-W");
-          return {
-            week: `W${weekNum}`,
-            year: parseInt(year),
-            weekNumber: parseInt(weekNum),
-            volume: item.totalVolume,
-          };
-        })
-        .sort((a, b) => a.year - b.year || a.weekNumber - b.weekNumber)
-        .slice(-8) // Show last 8 weeks
-    : [];
 
   return (
     <div className="p-4 space-y-4">
@@ -149,15 +203,19 @@ export function AnalyticsView() {
       </div>
 
       {/* Volume Chart */}
-      {volumeChartData.length > 0 && (
+      {volumeChartData.data.length > 0 && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Weekly Volume</CardTitle>
+            <CardTitle className="text-base">
+              {volumeChartData.hasMuscleGroupData
+                ? "Weekly Volume by Muscle Group"
+                : "Weekly Volume"}
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="h-48">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={volumeChartData}>
+                <BarChart data={volumeChartData.data}>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     className="stroke-muted"
@@ -168,16 +226,29 @@ export function AnalyticsView() {
                     tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
                   />
                   <Tooltip
-                    formatter={(value: number) => [
+                    formatter={(value: number, name: string) => [
                       `${Math.round(value).toLocaleString()} kg`,
-                      "Volume",
+                      name,
                     ]}
                   />
-                  <Bar
-                    dataKey="volume"
-                    fill="hsl(var(--primary))"
-                    radius={[4, 4, 0, 0]}
-                  />
+                  {volumeChartData.hasMuscleGroupData ? (
+                    // Stacked bar chart with muscle groups
+                    volumeChartData.muscleGroups.map((muscleGroup) => (
+                      <Bar
+                        key={muscleGroup}
+                        dataKey={muscleGroup}
+                        stackId="volume"
+                        fill={getMuscleGroupChartColor(muscleGroup)}
+                      />
+                    ))
+                  ) : (
+                    // Fallback: simple bar chart with total volume
+                    <Bar
+                      dataKey="volume"
+                      fill="hsl(var(--primary))"
+                      radius={[4, 4, 0, 0]}
+                    />
+                  )}
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -185,12 +256,12 @@ export function AnalyticsView() {
         </Card>
       )}
 
-      {/* Best Sets (Last 4 Weeks) - Grouped by Muscle */}
+      {/* Best Sets (PR) - Grouped by Muscle */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base flex items-center gap-2">
             <Trophy className="h-4 w-4 text-yellow-500" />
-            Best Sets (Last 4 Weeks)
+            Best Sets (PR)
           </CardTitle>
         </CardHeader>
         <CardContent>

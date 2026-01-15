@@ -384,7 +384,7 @@ analyticsRoutes.get("/exercise/:name/stats", async (c) => {
 
 /**
  * GET /api/analytics/volume-history
- * Get volume history aggregated by week
+ * Get volume history aggregated by week with muscle group breakdown
  */
 analyticsRoutes.get("/volume-history", async (c) => {
   try {
@@ -395,18 +395,34 @@ analyticsRoutes.get("/volume-history", async (c) => {
       .where(eq(workoutSessions.userId, user.id))
       .orderBy(workoutSessions.date);
 
-    // Group by ISO week (YYYY-Www format)
-    const weeklyData: Record<string, { totalVolume: number; exerciseCount: number }> = {};
+    // Fetch all exercise master data for this user to get muscle groups
+    const exerciseMasterData = await db
+      .select()
+      .from(exerciseMaster)
+      .where(eq(exerciseMaster.userId, user.id));
+
+    // Create a map of exercise name to muscle group
+    const muscleGroupMap = new Map<string, string>();
+    exerciseMasterData.forEach((em) => {
+      muscleGroupMap.set(em.name.toLowerCase(), em.muscleGroup);
+    });
+
+    // Group by ISO week (YYYY-Www format) with muscle group breakdown
+    const weeklyData: Record<string, { totalVolume: number; exerciseCount: number; muscleGroups: Record<string, number> }> = {};
 
     for (const session of allSessions) {
       if (!session.date) continue;
 
-      // Calculate ISO week (YYYY-Www format)
+      // Calculate ISO week (YYYY-Www format) - weeks start on Monday
       const date = new Date(session.date);
-      const year = date.getFullYear();
-      const startOfYear = new Date(year, 0, 1);
-      const days = Math.floor((date.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000));
-      const weekNumber = Math.ceil((days + startOfYear.getDay() + 1) / 7);
+      const target = new Date(date.valueOf());
+      const dayNr = (date.getDay() + 6) % 7; // Monday = 0, Sunday = 6
+      target.setDate(target.getDate() - dayNr + 3); // Thursday of current week
+      const year = target.getFullYear();
+      const firstThursday = new Date(year, 0, 4); // First Thursday of year
+      const dayNrFirstThursday = (firstThursday.getDay() + 6) % 7;
+      firstThursday.setDate(firstThursday.getDate() - dayNrFirstThursday + 3);
+      const weekNumber = 1 + Math.round((target.getTime() - firstThursday.getTime()) / 86400000 / 7);
       const weekKey = `${year}-W${weekNumber}`;
 
       const sessionExercises = await db
@@ -414,7 +430,9 @@ analyticsRoutes.get("/volume-history", async (c) => {
         .from(exercises)
         .where(eq(exercises.sessionId, session.id));
 
-      let totalVolume = 0;
+      if (!weeklyData[weekKey]) {
+        weeklyData[weekKey] = { totalVolume: 0, exerciseCount: 0, muscleGroups: {} };
+      }
 
       for (const exercise of sessionExercises) {
         const workingSets = await db
@@ -424,16 +442,17 @@ analyticsRoutes.get("/volume-history", async (c) => {
             and(eq(sets.exerciseId, exercise.id), eq(sets.isWarmup, false))
           );
 
-        totalVolume += workingSets.reduce((acc, s) => {
+        const muscleGroup = muscleGroupMap.get(exercise.name.toLowerCase()) || "Other";
+
+        const exerciseVolume = workingSets.reduce((acc, s) => {
           const weight = parseFloat(s.weight);
           return acc + calculateVolume(weight, s.reps);
         }, 0);
+
+        weeklyData[weekKey].totalVolume += exerciseVolume;
+        weeklyData[weekKey].muscleGroups[muscleGroup] = (weeklyData[weekKey].muscleGroups[muscleGroup] || 0) + exerciseVolume;
       }
 
-      if (!weeklyData[weekKey]) {
-        weeklyData[weekKey] = { totalVolume: 0, exerciseCount: 0 };
-      }
-      weeklyData[weekKey].totalVolume += totalVolume;
       weeklyData[weekKey].exerciseCount += sessionExercises.length;
     }
 
@@ -442,6 +461,7 @@ analyticsRoutes.get("/volume-history", async (c) => {
       week,
       totalVolume: data.totalVolume,
       exerciseCount: data.exerciseCount,
+      muscleGroups: data.muscleGroups,
     }));
 
     return c.json({
