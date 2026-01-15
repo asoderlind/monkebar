@@ -211,14 +211,13 @@ export function UnsavedExerciseCard({
               >
                 {warmup.weight === 0 && lastWarmup ? (
                   <span className="!text-gray-400">
-                    {lastWarmup.weight === 0 ? "BW" : `${lastWarmup.weight}kg`}
+                    {`${lastWarmup.weight}kg`}
                   </span>
-                ) : warmup.weight === 0 ? (
-                  "BW"
                 ) : (
                   `${warmup.weight}kg`
                 )}
               </Button>
+              x
               <Button
                 variant="outline"
                 className="flex-1 h-12 text-base font-semibold"
@@ -289,15 +288,12 @@ export function UnsavedExerciseCard({
                     disabled={!exerciseName.trim()}
                   >
                     {set.weight === 0 && lastSet ? (
-                      <span className="!text-gray-400">
-                        {lastSet.weight === 0 ? "BW" : lastSet.weight}
-                      </span>
-                    ) : set.weight === 0 ? (
-                      "BW"
+                      <span className="!text-gray-400">{lastSet.weight}kg</span>
                     ) : (
-                      set.weight
+                      `${set.weight}kg`
                     )}
                   </Button>
+                  x
                   <Button
                     variant="outline"
                     className="flex-1 h-12 text-base font-semibold"
