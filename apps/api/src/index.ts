@@ -6,6 +6,7 @@ import { auth } from "./auth.js";
 import { workoutsRoutes } from "./routes/workouts.js";
 import { analyticsRoutes } from "./routes/analytics.js";
 import { exercisesRoutes } from "./routes/exercises.js";
+import { measurementsRoutes } from "./routes/measurements.js";
 
 const app = new Hono();
 
@@ -33,6 +34,7 @@ app.on(["POST", "GET"], "/api/auth/**", (c) => {
 app.route("/api/workouts", workoutsRoutes);
 app.route("/api/analytics", analyticsRoutes);
 app.route("/api/exercises", exercisesRoutes);
+app.route("/api/measurements", measurementsRoutes);
 
 const port = parseInt(process.env.PORT || "3001");
 

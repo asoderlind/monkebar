@@ -146,12 +146,41 @@ export const exerciseMaster = pgTable(
 );
 
 // ============================================================================
+// Measurements - Body measurements tracking (weight, etc.)
+// ============================================================================
+
+export const measurements = pgTable(
+  "measurements",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id", { length: 36 })
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    type: varchar("type", { length: 50 }).notNull(), // e.g., "weight"
+    value: decimal("value", { precision: 6, scale: 2 }).notNull(),
+    unit: varchar("unit", { length: 20 }).notNull(), // e.g., "kg"
+    date: date("date").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("measurement_user_type_date_idx").on(
+      table.userId,
+      table.type,
+      table.date
+    ),
+  ]
+);
+
+// ============================================================================
 // Relations
 // ============================================================================
 
 export const usersRelations = relations(users, ({ many }) => ({
   workoutSessions: many(workoutSessions),
   exerciseMaster: many(exerciseMaster),
+  measurements: many(measurements),
 }));
 
 export const workoutSessionsRelations = relations(
@@ -187,6 +216,13 @@ export const exerciseMasterRelations = relations(exerciseMaster, ({ one }) => ({
   }),
 }));
 
+export const measurementsRelations = relations(measurements, ({ one }) => ({
+  user: one(users, {
+    fields: [measurements.userId],
+    references: [users.id],
+  }),
+}));
+
 // Type exports for use in the app
 export type WorkoutSession = typeof workoutSessions.$inferSelect;
 export type NewWorkoutSession = typeof workoutSessions.$inferInsert;
@@ -199,3 +235,6 @@ export type NewSet = typeof sets.$inferInsert;
 
 export type ExerciseMaster = typeof exerciseMaster.$inferSelect;
 export type NewExerciseMaster = typeof exerciseMaster.$inferInsert;
+
+export type Measurement = typeof measurements.$inferSelect;
+export type NewMeasurement = typeof measurements.$inferInsert;

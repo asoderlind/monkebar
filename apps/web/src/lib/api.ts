@@ -7,6 +7,8 @@ import type {
   DayOfWeek,
   ExerciseMaster,
   NewExerciseMaster,
+  Measurement,
+  NewMeasurement,
 } from "@monke-bar/shared";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
@@ -129,6 +131,29 @@ export const dbWorkoutsApi = {
   // Delete all workouts from database
   deleteAll: () =>
     fetchApi<{ message: string }>("/workouts/db", {
+      method: "DELETE",
+    }),
+};
+
+// Measurements API
+export const measurementsApi = {
+  getAll: (type?: string) =>
+    fetchApi<Measurement[]>(
+      type ? `/measurements?type=${encodeURIComponent(type)}` : "/measurements"
+    ),
+  getById: (id: number) => fetchApi<Measurement>(`/measurements/${id}`),
+  create: (data: NewMeasurement) =>
+    fetchApi<Measurement>("/measurements", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  update: (id: number, data: Partial<NewMeasurement>) =>
+    fetchApi<Measurement>(`/measurements/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  delete: (id: number) =>
+    fetchApi<{ message: string }>(`/measurements/${id}`, {
       method: "DELETE",
     }),
 };

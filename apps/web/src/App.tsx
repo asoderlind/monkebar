@@ -4,21 +4,18 @@ import { LogWorkoutView } from "./components/views/LogWorkoutView";
 import { AnalyticsView } from "./components/views/AnalyticsView";
 import { HistoryView } from "./components/views/HistoryView";
 import { ExercisesView } from "./components/views/ExercisesView";
-import { SettingsView } from "./components/views/SettingsView";
+import { MeasurementsView } from "./components/views/MeasurementsView";
 import { LoginView } from "./components/views/LoginView";
 import { Navigation } from "./components/Navigation";
 import { Header } from "./components/Header";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 
-type View = "log" | "analytics" | "history" | "exercises" | "settings";
+type View = "log" | "analytics" | "history" | "exercises" | "measurements";
 
 function App() {
   const { data: session, isPending } = useSession();
   const [currentView, setCurrentView] = useState<View>("log");
-  const [restTimerDuration, setRestTimerDuration] = useLocalStorage<number>(
-    "restTimerDuration",
-    120
-  );
+  const [restTimerDuration] = useLocalStorage<number>("restTimerDuration", 120);
 
   if (isPending) {
     return (
@@ -34,7 +31,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      <Header onSettingsClick={() => setCurrentView("settings")} />
+      <Header />
 
       <main className="flex-1 pb-20">
         {currentView === "log" && (
@@ -43,12 +40,7 @@ function App() {
         {currentView === "analytics" && <AnalyticsView />}
         {currentView === "history" && <HistoryView />}
         {currentView === "exercises" && <ExercisesView />}
-        {currentView === "settings" && (
-          <SettingsView
-            restTimerDuration={restTimerDuration}
-            onRestTimerDurationChange={setRestTimerDuration}
-          />
-        )}
+        {currentView === "measurements" && <MeasurementsView />}
       </main>
 
       <Navigation currentView={currentView} onViewChange={setCurrentView} />

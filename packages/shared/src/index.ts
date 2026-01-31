@@ -289,6 +289,33 @@ export interface NewExerciseMaster {
   notes?: string;
 }
 
+// ============================================================================
+// Measurement Types
+// ============================================================================
+
+export type MeasurementType = "weight";
+
+export const MEASUREMENT_TYPES: MeasurementType[] = ["weight"];
+
+export interface Measurement {
+  id: number;
+  type: MeasurementType;
+  value: number;
+  unit: string;
+  date: string;
+  notes: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface NewMeasurement {
+  type: MeasurementType;
+  value: number;
+  unit: string;
+  date: string;
+  notes?: string;
+}
+
 /**
  * Default column mapping based on the sheet structure shown in the image
  * Monday: B-G, Tuesday: H-M, etc.
