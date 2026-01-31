@@ -29,7 +29,15 @@ const MUSCLE_GROUP_SOLID_COLORS: Record<MuscleGroup, string> = {
   Core: "#ec4899",
 };
 
-export function MuscleGroupCalendar() {
+interface MuscleGroupCalendarProps {
+  onDateSelect?: (date: string) => void;
+  selectedDate?: string | null;
+}
+
+export function MuscleGroupCalendar({
+  onDateSelect,
+  selectedDate,
+}: MuscleGroupCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const { data: workouts } = useWorkouts();
   const { data: exerciseMaster } = useExercises();
@@ -137,15 +145,22 @@ export function MuscleGroupCalendar() {
             const muscleGroups = dateToMuscleGroups.get(dateStr);
             const isCurrentMonth = isSameMonth(day, currentMonth);
             const isTodayDate = isToday(day);
+            const hasWorkout = muscleGroups && muscleGroups.size > 0;
+            const isSelected = selectedDate === dateStr;
 
             return (
-              <div
+              <button
                 key={idx}
+                type="button"
+                disabled={!hasWorkout}
+                onClick={() => hasWorkout && onDateSelect?.(dateStr)}
                 className={`
                   aspect-square relative rounded-md border transition-colors
                   ${isCurrentMonth ? "border-border" : "border-transparent"}
                   ${isTodayDate ? "ring-2 ring-primary" : ""}
                   ${!isCurrentMonth ? "opacity-30" : ""}
+                  ${hasWorkout ? "cursor-pointer hover:bg-secondary/50" : "cursor-default"}
+                  ${isSelected ? "bg-primary/20 ring-2 ring-primary" : ""}
                 `}
               >
                 {/* Day number */}
@@ -154,7 +169,7 @@ export function MuscleGroupCalendar() {
                 </div>
 
                 {/* Muscle group indicators */}
-                {muscleGroups && muscleGroups.size > 0 && (
+                {hasWorkout && (
                   <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-0.5 p-1">
                     {Array.from(muscleGroups).map((muscleGroup) => (
                       <div
@@ -168,7 +183,7 @@ export function MuscleGroupCalendar() {
                     ))}
                   </div>
                 )}
-              </div>
+              </button>
             );
           })}
         </div>
