@@ -8,6 +8,7 @@ import {
   Timer,
   Pause,
   RotateCcw,
+  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ import { SavedExerciseCard } from "@/components/workout/SavedExerciseCard";
 import { UnsavedExerciseCard } from "@/components/workout/UnsavedExerciseCard";
 import { useWorkoutDraft } from "@/components/workout/useWorkoutDraft";
 import { formatDate, formatDateHeader, DAYS } from "@/components/workout/utils";
+import { DatePickerModal } from "@/components/DatePickerModal";
 
 interface LogWorkoutViewProps {
   restTimerDuration: number;
@@ -37,6 +39,7 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
     const dayIndex = new Date().getDay();
     return DAYS[dayIndex === 0 ? 6 : dayIndex - 1];
   });
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   // Date navigation handlers
   const handlePreviousDay = () => {
@@ -52,6 +55,13 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
     currentDate.setDate(currentDate.getDate() + 1);
     setSelectedDate(formatDate(currentDate));
     const dayIndex = currentDate.getDay();
+    setSelectedDay(DAYS[dayIndex === 0 ? 6 : dayIndex - 1]);
+  };
+
+  const handleDateSelect = (date: string) => {
+    setSelectedDate(date);
+    const newDate = new Date(date);
+    const dayIndex = newDate.getDay();
     setSelectedDay(DAYS[dayIndex === 0 ? 6 : dayIndex - 1]);
   };
 
@@ -238,9 +248,16 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
           <Button variant="ghost" size="icon" onClick={handlePreviousDay}>
             <ChevronLeft className="h-6 w-6" />
           </Button>
-          <h1 className="text-3xl font-bold">
-            {formatDateHeader(selectedDate)}
-          </h1>
+          <button
+            type="button"
+            onClick={() => setDatePickerOpen(true)}
+            className="flex items-center gap-2 hover:bg-secondary/50 rounded-lg px-2 py-1 transition-colors"
+          >
+            <h1 className="text-3xl font-bold">
+              {formatDateHeader(selectedDate)}
+            </h1>
+            <Calendar className="h-5 w-5 text-muted-foreground" />
+          </button>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" size="icon" onClick={handleNextDay}>
@@ -248,6 +265,14 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
           </Button>
         </div>
       </div>
+
+      {/* Date Picker Modal */}
+      <DatePickerModal
+        open={datePickerOpen}
+        onOpenChange={setDatePickerOpen}
+        selectedDate={selectedDate}
+        onDateSelect={handleDateSelect}
+      />
 
       {/* Rest Timer */}
       {remainingSeconds > 0 && (

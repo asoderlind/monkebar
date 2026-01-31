@@ -10,10 +10,11 @@ import {
   isToday,
   addMonths,
   subMonths,
+  parseISO,
 } from "date-fns";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { useWorkouts } from "@/hooks/useWorkouts";
 import { useExercises } from "@/hooks/useExercises";
 import type { MuscleGroup } from "@monke-bar/shared";
@@ -32,13 +33,26 @@ const MUSCLE_GROUP_SOLID_COLORS: Record<MuscleGroup, string> = {
 interface MuscleGroupCalendarProps {
   onDateSelect?: (date: string) => void;
   selectedDate?: string | null;
+  showLegend?: boolean;
+  allowAllDates?: boolean;
+  wrapped?: boolean;
+  initialMonth?: string;
 }
 
 export function MuscleGroupCalendar({
   onDateSelect,
   selectedDate,
+  showLegend = true,
+  allowAllDates = false,
+  wrapped = true,
+  initialMonth,
 }: MuscleGroupCalendarProps) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [currentMonth, setCurrentMonth] = useState(() => {
+    if (initialMonth) {
+      return parseISO(initialMonth);
+    }
+    return new Date();
+  });
   const { data: workouts } = useWorkouts();
   const { data: exerciseMaster } = useExercises();
 
@@ -97,98 +111,84 @@ export function MuscleGroupCalendar({
 
   const prevMonth = () => setCurrentMonth(subMonths(currentMonth, 1));
   const nextMonth = () => setCurrentMonth(addMonths(currentMonth, 1));
-  const goToToday = () => setCurrentMonth(new Date());
 
-  return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base">Muscle Group Calendar</CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={goToToday}
-            className="text-xs"
+  const calendarContent = (
+    <>
+      {/* Month Navigation */}
+      <div className="flex items-center justify-between mb-4">
+        <Button variant="ghost" size="icon" onClick={prevMonth}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <h3 className="font-semibold">{format(currentMonth, "MMMM yyyy")}</h3>
+        <Button variant="ghost" size="icon" onClick={nextMonth}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {/* Calendar Grid */}
+      <div className="grid grid-cols-7 gap-1">
+        {/* Day headers */}
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
+          <div
+            key={day}
+            className="text-center text-xs font-medium text-muted-foreground py-2"
           >
-            Today
-          </Button>
-        </div>
-        <div className="flex items-center justify-between mt-2">
-          <Button variant="ghost" size="icon" onClick={prevMonth}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <h3 className="font-semibold">
-            {format(currentMonth, "MMMM yyyy")}
-          </h3>
-          <Button variant="ghost" size="icon" onClick={nextMonth}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
-      </CardHeader>
+            {day}
+          </div>
+        ))}
 
-      <CardContent>
-        {/* Calendar Grid */}
-        <div className="grid grid-cols-7 gap-1">
-          {/* Day headers */}
-          {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((day) => (
-            <div
-              key={day}
-              className="text-center text-xs font-medium text-muted-foreground py-2"
+        {/* Calendar days */}
+        {calendarDays.map((day, idx) => {
+          const dateStr = format(day, "yyyy-MM-dd");
+          const muscleGroups = dateToMuscleGroups.get(dateStr);
+          const isCurrentMonth = isSameMonth(day, currentMonth);
+          const isTodayDate = isToday(day);
+          const hasWorkout = muscleGroups && muscleGroups.size > 0;
+          const isSelected = selectedDate === dateStr;
+          const isClickable = allowAllDates || hasWorkout;
+
+          return (
+            <button
+              key={idx}
+              type="button"
+              disabled={!isClickable}
+              onClick={() => isClickable && onDateSelect?.(dateStr)}
+              className={`
+                aspect-square relative rounded-md border transition-colors
+                ${isCurrentMonth ? "border-border" : "border-transparent"}
+                ${isTodayDate && !isSelected ? "ring-2 ring-primary" : ""}
+                ${!isCurrentMonth ? "opacity-30" : ""}
+                ${isClickable ? "cursor-pointer hover:bg-secondary/50" : "cursor-default"}
+                ${isSelected ? "bg-primary/20 ring-2 ring-primary" : ""}
+              `}
             >
-              {day}
-            </div>
-          ))}
+              {/* Day number */}
+              <div className="absolute top-0.5 left-0.5 text-[10px] font-medium z-10">
+                {format(day, "d")}
+              </div>
 
-          {/* Calendar days */}
-          {calendarDays.map((day, idx) => {
-            const dateStr = format(day, "yyyy-MM-dd");
-            const muscleGroups = dateToMuscleGroups.get(dateStr);
-            const isCurrentMonth = isSameMonth(day, currentMonth);
-            const isTodayDate = isToday(day);
-            const hasWorkout = muscleGroups && muscleGroups.size > 0;
-            const isSelected = selectedDate === dateStr;
-
-            return (
-              <button
-                key={idx}
-                type="button"
-                disabled={!hasWorkout}
-                onClick={() => hasWorkout && onDateSelect?.(dateStr)}
-                className={`
-                  aspect-square relative rounded-md border transition-colors
-                  ${isCurrentMonth ? "border-border" : "border-transparent"}
-                  ${isTodayDate ? "ring-2 ring-primary" : ""}
-                  ${!isCurrentMonth ? "opacity-30" : ""}
-                  ${hasWorkout ? "cursor-pointer hover:bg-secondary/50" : "cursor-default"}
-                  ${isSelected ? "bg-primary/20 ring-2 ring-primary" : ""}
-                `}
-              >
-                {/* Day number */}
-                <div className="absolute top-0.5 left-0.5 text-[10px] font-medium z-10">
-                  {format(day, "d")}
+              {/* Muscle group indicators */}
+              {hasWorkout && (
+                <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-0.5 p-1">
+                  {Array.from(muscleGroups).map((muscleGroup) => (
+                    <div
+                      key={muscleGroup}
+                      className="w-2 h-2 rounded-full"
+                      style={{
+                        backgroundColor: MUSCLE_GROUP_SOLID_COLORS[muscleGroup],
+                      }}
+                      title={muscleGroup}
+                    />
+                  ))}
                 </div>
+              )}
+            </button>
+          );
+        })}
+      </div>
 
-                {/* Muscle group indicators */}
-                {hasWorkout && (
-                  <div className="absolute inset-0 flex flex-wrap items-center justify-center gap-0.5 p-1">
-                    {Array.from(muscleGroups).map((muscleGroup) => (
-                      <div
-                        key={muscleGroup}
-                        className="w-2 h-2 rounded-full"
-                        style={{
-                          backgroundColor: MUSCLE_GROUP_SOLID_COLORS[muscleGroup],
-                        }}
-                        title={muscleGroup}
-                      />
-                    ))}
-                  </div>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Legend */}
+      {/* Legend */}
+      {showLegend && (
         <div className="mt-4 pt-4 border-t">
           <p className="text-xs text-muted-foreground mb-2">Muscle Groups:</p>
           <div className="flex flex-wrap gap-2">
@@ -203,7 +203,17 @@ export function MuscleGroupCalendar({
             ))}
           </div>
         </div>
-      </CardContent>
+      )}
+    </>
+  );
+
+  if (!wrapped) {
+    return calendarContent;
+  }
+
+  return (
+    <Card>
+      <CardContent className="pt-6">{calendarContent}</CardContent>
     </Card>
   );
 }
