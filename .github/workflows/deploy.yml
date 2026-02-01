@@ -105,15 +105,30 @@ jobs:
             # Login to GitHub Container Registry
             echo $GHCR_TOKEN | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+            # Pull new images first
+            docker compose -f docker-compose.prod.yml pull
+
+            # Backup database before migration (if db container exists)
+            mkdir -p ~/monke-bar/backups
+            if docker ps -a --format '{{.Names}}' | grep -q 'monke-bar-db-prod'; then
+              echo "Backing up database..."
+              docker exec monke-bar-db-prod pg_dump -U monkebar monkebar > ~/monke-bar/backups/backup-$(date +%Y%m%d-%H%M%S).sql
+              # Keep only the last 5 backups
+              ls -t ~/monke-bar/backups/*.sql 2>/dev/null | tail -n +6 | xargs -r rm --
+              echo "Backup complete. Recent backups:"
+              ls -lh ~/monke-bar/backups/*.sql | head -5
+            else
+              echo "No existing database container found, skipping backup"
+            fi
+
             # Stop and remove old containers
             docker compose -f docker-compose.prod.yml down || true
 
-            docker compose -f docker-compose.prod.yml pull
-            docker compose -f docker-compose.prod.yml up -d db
+            docker compose -f docker-compose.prod.yml up -d postgres
             sleep 5  # Wait for postgres to be ready
 
-            # Run database migrations
-            docker compose -f docker-compose.prod.yml run --rm api pnpm db:migrate
+            # Run database migrations (using compiled JS, not tsx)
+            docker compose -f docker-compose.prod.yml run --rm api node dist/db/migrate.js
 
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
             docker image prune -f

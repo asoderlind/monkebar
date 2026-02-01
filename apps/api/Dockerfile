@@ -49,10 +49,8 @@ RUN pnpm install --frozen-lockfile --prod
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 
-# Copy drizzle config and migrations
-COPY apps/api/drizzle.config.ts ./apps/api/
+# Copy drizzle migrations folder (migrations are run from compiled JS)
 COPY apps/api/drizzle ./apps/api/drizzle
-COPY apps/api/src/db/migrate.ts ./apps/api/src/db/
 
 WORKDIR /app/apps/api
 
