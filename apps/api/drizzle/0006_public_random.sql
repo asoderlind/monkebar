@@ -6,9 +6,16 @@ DROP TABLE IF EXISTS "sync_logs" CASCADE;--> statement-breakpoint
 ALTER TABLE "exercise_master" DROP CONSTRAINT IF EXISTS "exercise_master_name_unique";--> statement-breakpoint
 DROP INDEX IF EXISTS "session_unique_idx";--> statement-breakpoint
 
--- Add user_id columns as nullable first (to allow existing data)
-ALTER TABLE "exercise_master" ADD COLUMN "user_id" varchar(36);--> statement-breakpoint
-ALTER TABLE "workout_sessions" ADD COLUMN "user_id" varchar(36);--> statement-breakpoint
+-- Add user_id columns as nullable first (to allow existing data) - idempotent
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'exercise_master' AND column_name = 'user_id') THEN
+    ALTER TABLE "exercise_master" ADD COLUMN "user_id" varchar(36);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'workout_sessions' AND column_name = 'user_id') THEN
+    ALTER TABLE "workout_sessions" ADD COLUMN "user_id" varchar(36);
+  END IF;
+END $$;--> statement-breakpoint
 
 -- Populate existing records with first user's ID
 DO $$
@@ -28,14 +35,21 @@ BEGIN
   END IF;
 END $$;--> statement-breakpoint
 
--- Make user_id NOT NULL after populating existing data
+-- Make user_id NOT NULL after populating existing data (idempotent - SET NOT NULL is safe to run multiple times)
 ALTER TABLE "exercise_master" ALTER COLUMN "user_id" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "workout_sessions" ALTER COLUMN "user_id" SET NOT NULL;--> statement-breakpoint
 
--- Add foreign key constraints
-ALTER TABLE "exercise_master" ADD CONSTRAINT "exercise_master_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "workout_sessions" ADD CONSTRAINT "workout_sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+-- Add foreign key constraints (idempotent)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'exercise_master_user_id_users_id_fk') THEN
+    ALTER TABLE "exercise_master" ADD CONSTRAINT "exercise_master_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.table_constraints WHERE constraint_name = 'workout_sessions_user_id_users_id_fk') THEN
+    ALTER TABLE "workout_sessions" ADD CONSTRAINT "workout_sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;
+  END IF;
+END $$;--> statement-breakpoint
 
--- Create new unique indexes
-CREATE UNIQUE INDEX "exercise_user_name_idx" ON "exercise_master" USING btree ("user_id","name");--> statement-breakpoint
-CREATE UNIQUE INDEX "session_unique_idx" ON "workout_sessions" USING btree ("user_id","week_number","day_of_week");
+-- Create new unique indexes (idempotent)
+CREATE UNIQUE INDEX IF NOT EXISTS "exercise_user_name_idx" ON "exercise_master" USING btree ("user_id","name");--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "session_unique_idx" ON "workout_sessions" USING btree ("user_id","week_number","day_of_week");
