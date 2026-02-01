@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type View = "log" | "analytics" | "history" | "exercises" | "measurements";
+type View = "log" | "analytics" | "history" | "exercises" | "measurements" | "settings";
 
 interface NavigationProps {
   currentView: View;
