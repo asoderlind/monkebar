@@ -2,6 +2,13 @@
 
 A mobile-first workout tracking app with analytics, body measurements, and exercise management. Built as a TypeScript monorepo with React, Hono, and PostgreSQL.
 
+## Screenshots
+
+<img width="370" height="641" alt="image" src="https://github.com/user-attachments/assets/c9c982a6-c9f3-417b-b2ed-9cf3fccd9d89" />
+<img width="370" height="645" alt="image" src="https://github.com/user-attachments/assets/81f90037-c1bd-46c1-b24d-02f354a973d6" />
+<img width="367" height="643" alt="image" src="https://github.com/user-attachments/assets/4f3e710d-3e95-4687-aaa7-409a5527b2cb" />
+<img width="368" height="646" alt="image" src="https://github.com/user-attachments/assets/5e4f56cd-defd-4eec-8370-3559024ae737" />
+
 ## Features
 
 - 📱 **Mobile-first UI** — Log workouts with sets, reps, and weights
