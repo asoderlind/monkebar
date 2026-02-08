@@ -1,34 +1,27 @@
-# 🦍 Monkebar - Workout Tracker
+# 🦍 Monke Bar — Workout Tracker
 
-A mobile-friendly workout tracking app that syncs with Google Sheets, providing analytics and trends while keeping your spreadsheet as the source of truth.
+A mobile-first workout tracking app with analytics, body measurements, and exercise management. Built as a TypeScript monorepo with React, Hono, and PostgreSQL.
 
 ## Features
 
-- 📱 **Mobile-first UI** - Swipe through days, tap to view exercises
-- 📊 **Analytics Dashboard** - Best sets, volume trends, exercise progress
-- 🔄 **Google Sheets Sync** - Your spreadsheet remains the source of truth
-- 📈 **Trend Analysis** - Track PRs, weekly volume, and exercise progression
-- 🏋️ **Exercise History** - View all workout data for any exercise
-- 🔐 **Google OAuth** - Login with your Google account to access your sheets
+- 📱 **Mobile-first UI** — Log workouts with sets, reps, and weights
+- 📊 **Analytics Dashboard** — Best sets, volume trends, exercise progress charts
+- 📈 **Trend Analysis** — Track PRs, weekly volume, and exercise progression
+- 🏋️ **Exercise Library** — Manage exercises with muscle group categorization and supersets
+- 📏 **Body Measurements** — Track weight, body fat, and other measurements over time
+- 🗓️ **Workout History** — Calendar view with muscle group heatmap
+- 🔐 **Google OAuth** — Secure authentication via better-auth
+- 🐳 **Docker Support** — Development and production Docker Compose setups
 
 ## Tech Stack
 
-- **Frontend**: React 19, Vite, Tailwind CSS, shadcn/ui, React Query, Recharts
-- **Backend**: Hono, Drizzle ORM, PostgreSQL, better-auth
-- **Integration**: Google Sheets API via OAuth 2.0
-
-## Spreadsheet Format
-
-Your Google Sheet should follow this format:
-
-| Week | Exercise (Mon) | Warmup | Set 1  | Set 2  | Set 3  | Set 4 | Exercise (Tue) | ... |
-| ---- | -------------- | ------ | ------ | ------ | ------ | ----- | -------------- | --- |
-| 1    | Bench Press    | 40kg,5 | 70kg,6 | 70kg,6 | 70kg,5 |       | Squat          | ... |
-| 1    | Rows           |        | 60kg,8 | 60kg,8 | 60kg,8 |       | Deadlift       | ... |
-
-- **Week column (A)**: Week number
-- **Days**: Monday (B-G), Tuesday (H-M), etc.
-- **Set format**: `{weight}kg, {reps}` (e.g., "70kg, 6")
+| Layer    | Technology                                                              |
+| -------- | ----------------------------------------------------------------------- |
+| Frontend | React 19, Vite, Tailwind CSS, shadcn/ui, TanStack React Query, Recharts |
+| Backend  | Hono, Drizzle ORM, Zod                                                  |
+| Database | PostgreSQL                                                              |
+| Auth     | better-auth with Google OAuth                                           |
+| Infra    | Docker, Traefik, GitHub Actions CI/CD                                   |
 
 ## Quick Start
 
@@ -37,12 +30,12 @@ Your Google Sheet should follow this format:
 - Node.js 20+
 - pnpm 9+
 - PostgreSQL (or Docker)
-- Google Cloud Project with OAuth credentials
+- Google Cloud project with OAuth 2.0 credentials
 
 ### 1. Clone and Install
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/asoderlind/monke-bar.git
 cd monke-bar
 pnpm install
 ```
@@ -51,21 +44,19 @@ pnpm install
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
 2. Create a new project or select existing
-3. Enable the **Google Sheets API** and **Google Drive API**
-4. Go to **APIs & Services > Credentials**
-5. Click **Create Credentials > OAuth 2.0 Client IDs**
-6. Select **Web application**
-7. Add authorized redirect URI: `http://localhost:3001/api/auth/callback/google`
-8. Copy the **Client ID** and **Client Secret**
+3. Go to **APIs & Services > Credentials**
+4. Click **Create Credentials > OAuth 2.0 Client IDs**
+5. Select **Web application**
+6. Add authorized redirect URI: `http://localhost:3001/api/auth/callback/google`
+7. Copy the **Client ID** and **Client Secret**
 
 ### 3. Configure Environment
 
 ```bash
-cd apps/api
-cp .env.example .env
+cp apps/api/.env.example apps/api/.env
 ```
 
-Edit `.env` with your values:
+Edit `apps/api/.env`:
 
 ```env
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/monkebar
@@ -84,13 +75,9 @@ openssl rand -base64 32
 
 ### 4. Start Database
 
-With Docker:
-
 ```bash
 docker compose -f docker-compose.dev.yml up db -d
 ```
-
-Or use your own PostgreSQL instance.
 
 ### 5. Run Migrations
 
@@ -104,85 +91,98 @@ pnpm db:push
 pnpm dev
 ```
 
-This starts:
+- **API:** http://localhost:3001
+- **Web:** http://localhost:5173
 
-- API: http://localhost:3001
-- Web: http://localhost:5173
-
-## Development
-
-### Commands
-
-```bash
-# Start all services
-pnpm dev
-
-# Start individual services
-pnpm dev:web
-pnpm dev:api
-
-# Database
-pnpm db:generate  # Generate migrations
-pnpm db:migrate   # Run migrations
-pnpm db:push      # Push schema (dev)
-pnpm db:studio    # Open Drizzle Studio
-
-# Build
-pnpm build
-
-# Lint
-pnpm lint
-```
-
-### Project Structure
+## Project Structure
 
 ```
 monke-bar/
 ├── apps/
-│   ├── api/           # Hono backend
+│   ├── api/                # Hono REST API
 │   │   ├── src/
-│   │   │   ├── db/       # Drizzle schema & connection
-│   │   │   ├── lib/      # Google Sheets service
-│   │   │   └── routes/   # API routes
-│   │   └── drizzle/      # Migrations
-│   └── web/           # React frontend
+│   │   │   ├── index.ts        # Server entry point & middleware
+│   │   │   ├── auth.ts         # better-auth configuration
+│   │   │   ├── db/
+│   │   │   │   ├── schema.ts   # Drizzle ORM schema
+│   │   │   │   ├── index.ts    # Database connection
+│   │   │   │   └── migrate.ts  # Migration runner
+│   │   │   ├── lib/
+│   │   │   │   └── middleware.ts  # Auth middleware
+│   │   │   └── routes/
+│   │   │       ├── workouts.ts
+│   │   │       ├── exercises.ts
+│   │   │       ├── analytics.ts
+│   │   │       └── measurements.ts
+│   │   └── drizzle/            # SQL migration files
+│   │
+│   └── web/                # React SPA
 │       └── src/
+│           ├── App.tsx
 │           ├── components/
-│           │   ├── ui/       # shadcn components
-│           │   └── views/    # Page views
-│           ├── hooks/        # React Query hooks
-│           └── lib/          # API client
+│           │   ├── ui/         # shadcn/ui primitives
+│           │   ├── views/      # Page-level views
+│           │   └── workout/    # Workout logging components
+│           ├── hooks/          # React Query hooks
+│           └── lib/            # API client, auth, utilities
+│
 └── packages/
-    └── shared/        # Shared TypeScript types
+    └── shared/             # Shared TypeScript types
+```
+
+## Development Commands
+
+```bash
+pnpm dev            # Start all services (API + Web)
+pnpm dev:api        # Start API only
+pnpm dev:web        # Start Web only
+pnpm build          # Build all packages
+pnpm lint           # Lint all packages
+pnpm test           # Run tests
+
+# Database
+pnpm db:generate    # Generate migration files from schema changes
+pnpm db:migrate     # Run pending migrations
+pnpm db:push        # Push schema directly (dev only)
+pnpm db:studio      # Open Drizzle Studio GUI
 ```
 
 ## API Endpoints
 
-### Workouts
+All endpoints (except health and auth) require authentication.
 
-- `GET /api/workouts` - Get all workout weeks
-- `GET /api/workouts/latest` - Get most recent week
-- `GET /api/workouts/week/:number` - Get specific week
-- `GET /api/workouts/exercises` - List all exercises
-- `GET /api/workouts/exercise/:name` - Get exercise history
-
-### Analytics
-
-- `GET /api/analytics/best-sets?weeks=4` - Best sets per exercise
-- `GET /api/analytics/exercise/:name/trends` - Exercise trends
-- `GET /api/analytics/exercise/:name/stats` - Exercise stats
-- `GET /api/analytics/volume-history` - Volume over time
-- `GET /api/analytics/summary` - Overall summary
-
-### Sheets
-
-- `GET /api/sheets/sync` - Sync from Google Sheets
-- `GET /api/sheets/status` - Get sync status
-- `POST /api/sheets/update-cell` - Update a cell
+| Method           | Endpoint                                      | Description                             |
+| ---------------- | --------------------------------------------- | --------------------------------------- |
+| `GET`            | `/api/health`                                 | Health check                            |
+| `*`              | `/api/auth/**`                                | Authentication (better-auth)            |
+| **Workouts**     |                                               |                                         |
+| `GET`            | `/api/workouts/db`                            | Get all workouts                        |
+| `POST`           | `/api/workouts/db`                            | Log a workout session                   |
+| `DELETE`         | `/api/workouts/db`                            | Delete all workouts                     |
+| `POST`           | `/api/workouts/db/import`                     | Import workouts (CSV)                   |
+| `DELETE`         | `/api/workouts/db/:date/exercise/:exerciseId` | Delete specific exercise from a session |
+| **Exercises**    |                                               |                                         |
+| `GET`            | `/api/exercises`                              | List all exercises                      |
+| `GET`            | `/api/exercises/:id`                          | Get exercise by ID                      |
+| `POST`           | `/api/exercises`                              | Create exercise                         |
+| `PUT`            | `/api/exercises/:id`                          | Update exercise                         |
+| `DELETE`         | `/api/exercises/:id`                          | Delete exercise                         |
+| **Analytics**    |                                               |                                         |
+| `GET`            | `/api/analytics/best-sets`                    | Best sets per exercise                  |
+| `GET`            | `/api/analytics/exercise/:name/trends`        | Exercise trends over time               |
+| `GET`            | `/api/analytics/exercise/:name/stats`         | Exercise statistics                     |
+| `GET`            | `/api/analytics/volume-history`               | Volume over time                        |
+| `GET`            | `/api/analytics/summary`                      | Overall workout summary                 |
+| **Measurements** |                                               |                                         |
+| `GET`            | `/api/measurements`                           | List all measurements                   |
+| `GET`            | `/api/measurements/:id`                       | Get measurement by ID                   |
+| `POST`           | `/api/measurements`                           | Create measurement                      |
+| `PUT`            | `/api/measurements/:id`                       | Update measurement                      |
+| `DELETE`         | `/api/measurements/:id`                       | Delete measurement                      |
 
 ## Docker
 
-### Development
+### Development (with hot reload)
 
 ```bash
 docker compose -f docker-compose.dev.yml up
@@ -193,6 +193,8 @@ docker compose -f docker-compose.dev.yml up
 ```bash
 docker compose -f docker-compose.prod.yml up -d
 ```
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for full production deployment instructions with GitHub Actions CI/CD.
 
 ## License
 
