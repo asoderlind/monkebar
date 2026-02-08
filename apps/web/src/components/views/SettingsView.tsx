@@ -125,7 +125,7 @@ export function SettingsView({
     },
     onSuccess: (data) => {
       setImportSuccess(
-        `Successfully imported ${data.imported} new workouts and updated ${data.updated} existing workouts.`
+        `Successfully imported ${data.imported} new workouts and updated ${data.updated} existing workouts.`,
       );
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ["workouts"] });
@@ -147,7 +147,7 @@ export function SettingsView({
   };
 
   const handleFileChange = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -225,11 +225,11 @@ export function SettingsView({
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-2">
-            {([
+            {[
               { value: "light" as Theme, icon: Sun, label: "Light" },
               { value: "dark" as Theme, icon: Moon, label: "Dark" },
               { value: "system" as Theme, icon: Monitor, label: "System" },
-            ]).map(({ value, icon: Icon, label }) => (
+            ].map(({ value, icon: Icon, label }) => (
               <button
                 key={value}
                 onClick={() => onThemeChange(value)}

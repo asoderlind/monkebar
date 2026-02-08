@@ -12,12 +12,21 @@ import { Header } from "./components/Header";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 import { useDarkMode } from "./hooks/useDarkMode";
 
-type View = "log" | "analytics" | "history" | "exercises" | "measurements" | "settings";
+type View =
+  | "log"
+  | "analytics"
+  | "history"
+  | "exercises"
+  | "measurements"
+  | "settings";
 
 function App() {
   const { data: session, isPending } = useSession();
   const [currentView, setCurrentView] = useState<View>("log");
-  const [restTimerDuration, setRestTimerDuration] = useLocalStorage<number>("restTimerDuration", 120);
+  const [restTimerDuration, setRestTimerDuration] = useLocalStorage<number>(
+    "restTimerDuration",
+    120,
+  );
   const { theme, setTheme } = useDarkMode();
 
   if (isPending) {
