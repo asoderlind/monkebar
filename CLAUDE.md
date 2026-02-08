@@ -4,7 +4,7 @@ You are Claude, a large language model trained by Anthropic. You are a proffesio
 
 # Tech Stack Documentation
 
-This document outlines the technology stack and folder structure of this monorepo project, designed for reuse in similar full-stack applications (e.g., workout tracking app with Google Sheets integration).
+This document outlines the technology stack and folder structure of this monorepo project.
 
 ## Project Architecture
 
@@ -77,7 +77,7 @@ This document outlines the technology stack and folder structure of this monorep
 ### Utilities
 
 - **date-fns** - Date manipulation and formatting
-- **xlsx** (SheetJS) - Excel file parsing and generation (useful for Google Sheets integration)
+- **xlsx** (SheetJS) - Excel file parsing and generation
 - **clsx** - Conditional class name utility
 
 ### Authentication
@@ -148,70 +148,65 @@ This document outlines the technology stack and folder structure of this monorep
 ## Folder Structure
 
 ```
-pay-splitter/
+monke-bar/
 ├── apps/
-│   ├── api/                          # Backend API
+│   ├── api/                          # Backend API (Hono)
 │   │   ├── src/
-│   │   │   ├── auth.ts              # Authentication setup
+│   │   │   ├── auth.ts              # Authentication setup (better-auth)
 │   │   │   ├── index.ts             # Server entry point
 │   │   │   ├── db/
 │   │   │   │   ├── index.ts         # Database connection
 │   │   │   │   ├── schema.ts        # Drizzle schema definitions
-│   │   │   │   └── migrate.ts       # Migration runner
+│   │   │   │   ├── migrate.ts       # Migration runner
+│   │   │   │   └── seed-exercises.ts # Default exercise seeding
 │   │   │   ├── lib/
-│   │   │   │   ├── errors.ts        # Custom error classes
-│   │   │   │   └── validation.ts    # Validation utilities
+│   │   │   │   └── middleware.ts     # Auth middleware
 │   │   │   └── routes/
-│   │   │       ├── households.ts    # Household endpoints
-│   │   │       └── transactions.ts  # Transaction endpoints
+│   │   │       ├── workouts.ts      # Workout endpoints
+│   │   │       ├── exercises.ts     # Exercise endpoints
+│   │   │       ├── analytics.ts     # Analytics endpoints
+│   │   │       └── measurements.ts  # Measurement endpoints
 │   │   ├── drizzle/                 # Migration files
 │   │   ├── drizzle.config.ts        # Drizzle configuration
-│   │   ├── tsconfig.json            # TypeScript config
+│   │   ├── tsconfig.json
 │   │   ├── package.json
 │   │   ├── Dockerfile               # Production container
 │   │   └── Dockerfile.dev           # Development container
 │   │
-│   └── web/                          # Frontend application
+│   └── web/                          # Frontend application (React)
 │       ├── src/
 │       │   ├── main.tsx             # Application entry point
 │       │   ├── App.tsx              # Root component
 │       │   ├── index.css            # Global styles
 │       │   ├── components/
 │       │   │   ├── ui/              # shadcn/ui components
-│       │   │   ├── import/          # Import-related components
-│       │   │   ├── settlement/      # Settlement components
-│       │   │   ├── transactions/    # Transaction components
 │       │   │   ├── views/           # Page-level views
-│       │   │   ├── ErrorBoundary.tsx
-│       │   │   └── FloatingActionBar.tsx
+│       │   │   ├── workout/         # Workout logging components
+│       │   │   ├── Header.tsx
+│       │   │   ├── Navigation.tsx
+│       │   │   ├── DatePickerModal.tsx
+│       │   │   └── MuscleGroupCalendar.tsx
 │       │   ├── hooks/               # Custom React hooks
-│       │   │   ├── useAppState.ts
-│       │   │   ├── useTheme.ts
-│       │   │   └── useTransactions.ts
-│       │   ├── lib/
-│       │   │   ├── api/             # API client utilities
-│       │   │   ├── parsers/         # Data parsing utilities
-│       │   │   ├── auth-client.ts   # Authentication client
-│       │   │   ├── settlement.ts    # Business logic
-│       │   │   └── utils.ts         # General utilities
-│       │   └── types/
-│       │       └── index.ts         # TypeScript type definitions
-│       ├── public/                  # Static assets
-│       ├── components.json          # shadcn/ui configuration
+│       │   │   ├── useExercises.ts
+│       │   │   ├── useWorkouts.ts
+│       │   │   ├── useMeasurements.ts
+│       │   │   └── useLocalStorage.ts
+│       │   └── lib/
+│       │       ├── api.ts           # API client
+│       │       ├── auth.ts          # Authentication client
+│       │       ├── csv.ts           # CSV import utilities
+│       │       └── utils.ts         # General utilities
 │       ├── vite.config.ts           # Vite configuration
-│       ├── tsconfig.json            # TypeScript project config
-│       ├── tsconfig.app.json        # App-specific TS config
-│       ├── tsconfig.node.json       # Node-specific TS config
-│       ├── eslint.config.js         # ESLint configuration
+│       ├── tsconfig.json
 │       ├── package.json
 │       ├── Dockerfile               # Production container
 │       ├── Dockerfile.dev           # Development container
 │       └── index.html               # HTML entry point
 │
 ├── packages/
-│   └── shared/                      # Shared code
+│   └── shared/                      # Shared types and utilities
 │       ├── src/
-│       │   └── index.ts             # Shared types/utilities
+│       │   └── index.ts             # Exported types and helpers
 │       ├── tsconfig.json
 │       └── package.json
 │
@@ -334,23 +329,6 @@ pnpm test:run     # Run tests once (CI mode)
 
 - API proxy configured in `vite.config.ts` to forward `/api` requests to `http://localhost:3000`
 
-## Key Features for Reuse
-
-### For Google Sheets Integration
-
-1. **xlsx library** already included for spreadsheet parsing
-2. **React Query** for data fetching and caching
-3. **Zod** for validating imported data
-4. **Drizzle ORM** for syncing data to database
-5. **Custom hooks pattern** for business logic separation
-
-### Recommended Additions for Workout App
-
-1. **Google Sheets API** - For real-time sync
-2. **Charts library** - For workout progress visualization (e.g., Recharts, Chart.js)
-3. **Date utilities** - Already have date-fns
-4. **Form handling** - Consider React Hook Form + Zod for workout entry forms
-
 ## TypeScript Configuration
 
 - Strict mode enabled
@@ -379,14 +357,13 @@ This stack provides a modern, type-safe full-stack application with:
 - ✅ Type-safe database with Drizzle ORM
 - ✅ Authentication built-in
 - ✅ Docker support for deployment
-- ✅ Excel/Sheets handling capabilities
 - ✅ Comprehensive validation with Zod
 
-This architecture is well-suited for a workout tracking app with Google Sheets integration, where you can:
+This architecture powers a workout tracking app where you can:
 
-- Import workout data from Google Sheets
-- Sync data bidirectionally
-- Display progress with charts
-- Track exercises, sets, reps, weights
-- Handle user authentication
-- Store historical data in PostgreSQL
+- Log workouts with exercises, sets, reps, and weights
+- View analytics with progress charts (Recharts)
+- Track body measurements over time
+- Manage a personal exercise library
+- Authenticate via Google OAuth
+- Store all data in PostgreSQL
