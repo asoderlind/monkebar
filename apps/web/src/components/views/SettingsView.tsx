@@ -18,7 +18,11 @@ import {
   AlertCircle,
   CheckCircle2,
   Timer,
+  Sun,
+  Moon,
+  Monitor,
 } from "lucide-react";
+import type { Theme } from "@/hooks/useDarkMode";
 import { dbWorkoutsApi } from "@/lib/api";
 import {
   exportWorkoutsToCSV,
@@ -39,11 +43,15 @@ import {
 interface SettingsViewProps {
   restTimerDuration: number;
   onRestTimerDurationChange: (duration: number) => void;
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
 }
 
 export function SettingsView({
   restTimerDuration,
   onRestTimerDurationChange,
+  theme,
+  onThemeChange,
 }: SettingsViewProps) {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
@@ -117,7 +125,7 @@ export function SettingsView({
     },
     onSuccess: (data) => {
       setImportSuccess(
-        `Successfully imported ${data.imported} new workouts and updated ${data.updated} existing workouts.`
+        `Successfully imported ${data.imported} new workouts and updated ${data.updated} existing workouts.`,
       );
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: ["workouts"] });
@@ -139,7 +147,7 @@ export function SettingsView({
   };
 
   const handleFileChange = async (
-    event: React.ChangeEvent<HTMLInputElement>
+    event: React.ChangeEvent<HTMLInputElement>,
   ) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -205,6 +213,36 @@ export function SettingsView({
             <Button variant="ghost" size="icon" onClick={handleLogout}>
               <LogOut className="h-4 w-4" />
             </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Appearance */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Appearance</CardTitle>
+          <CardDescription>Choose your preferred theme</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { value: "light" as Theme, icon: Sun, label: "Light" },
+              { value: "dark" as Theme, icon: Moon, label: "Dark" },
+              { value: "system" as Theme, icon: Monitor, label: "System" },
+            ].map(({ value, icon: Icon, label }) => (
+              <button
+                key={value}
+                onClick={() => onThemeChange(value)}
+                className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 text-sm transition-colors ${
+                  theme === value
+                    ? "border-primary bg-primary/10 text-primary font-medium"
+                    : "border-border hover:bg-accent text-muted-foreground"
+                }`}
+              >
+                <Icon className="h-5 w-5" />
+                {label}
+              </button>
+            ))}
           </div>
         </CardContent>
       </Card>
