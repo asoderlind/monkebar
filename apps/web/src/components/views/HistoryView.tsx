@@ -100,20 +100,38 @@ export function HistoryView() {
                   <div key={idx} className="p-2 rounded-lg bg-secondary/30">
                     <p className="font-medium text-sm mb-1">{exercise.name}</p>
                     <div className="flex flex-wrap gap-1">
-                      {exercise.sets.map((set) => (
-                        <span
-                          key={set.setNumber}
-                          className={`text-xs px-2 py-0.5 rounded ${
-                            set.isWarmup
-                              ? "bg-muted text-muted-foreground"
-                              : "bg-secondary"
-                          }`}
-                        >
-                          {set.weight === 0
-                            ? `${set.reps}`
-                            : `${set.weight}×${set.reps}`}
-                        </span>
-                      ))}
+                      {exercise.cardio ? (
+                        <>
+                          <span className="text-xs px-2 py-0.5 rounded bg-secondary">
+                            {Math.round(exercise.cardio.duration / 60)} min
+                          </span>
+                          {exercise.cardio.level != null && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-secondary">
+                              Level {exercise.cardio.level}
+                            </span>
+                          )}
+                          {exercise.cardio.distance != null && (
+                            <span className="text-xs px-2 py-0.5 rounded bg-secondary">
+                              {exercise.cardio.distance} km
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        exercise.sets.map((set) => (
+                          <span
+                            key={set.setNumber}
+                            className={`text-xs px-2 py-0.5 rounded ${
+                              set.isWarmup
+                                ? "bg-muted text-muted-foreground"
+                                : "bg-secondary"
+                            }`}
+                          >
+                            {set.weight === 0
+                              ? `${set.reps}`
+                              : `${set.weight}×${set.reps}`}
+                          </span>
+                        ))
+                      )}
                     </div>
                   </div>
                 ))}
