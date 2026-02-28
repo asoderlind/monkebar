@@ -3,15 +3,15 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronDown, Loader2, RotateCcw, Save } from "lucide-react";
-import { EXERCISE_CATEGORY_CONFIG } from "@/lib/exerciseCategories";
+import { CategoryButtonGroup } from "@/components/ui/CategoryButtonGroup";
 import { useExercises } from "@/hooks/useExercises";
 import { useExerciseHistory } from "@/hooks/useWorkouts";
 import {
-  MUSCLE_GROUP_COLORS,
   type MuscleGroup,
   type ExerciseCategory,
   type WorkoutSet,
 } from "@monke-bar/shared";
+import { MuscleGroupPill } from "@/components/ui/MuscleGroupPill";
 import { SetInputModal } from "./SetInputModal";
 import { calculateDiff } from "./utils";
 import type { SetInput } from "./types";
@@ -196,27 +196,15 @@ export function UnsavedExerciseCard({
       <Card>
         <CardHeader className="pb-2">
           {/* Category button group */}
-          <div className="flex gap-1 mb-2">
-            {EXERCISE_CATEGORY_CONFIG.map(({ cat, icon: Icon }) => (
-              <Button
-                key={cat}
-                variant={category === cat ? "secondary" : "ghost"}
-                size="sm"
-                className={
-                  category === cat
-                    ? "flex-1 text-xs gap-1 bg-zinc-900 text-zinc-50 hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                    : "flex-1 text-xs gap-1"
-                }
-                onClick={() => {
-                  onCategoryChange(cat);
-                  onExerciseNameChange("");
-                  setExerciseSelected(false);
-                }}
-              >
-                <Icon className="h-3 w-3" />
-                {cat}
-              </Button>
-            ))}
+          <div className="mb-2">
+            <CategoryButtonGroup
+              value={category}
+              onChange={(cat) => {
+                onCategoryChange(cat);
+                onExerciseNameChange("");
+                setExerciseSelected(false);
+              }}
+            />
           </div>
 
           <div className="flex items-center gap-2">
@@ -246,7 +234,9 @@ export function UnsavedExerciseCard({
                         .includes(exerciseName.toLowerCase())
                     )
                     .map((ex) => {
-                      const mg = exerciseMuscleGroupMap[ex.name];
+                      const pillMg = ex.category === "Cardio"
+                        ? "Heart"
+                        : exerciseMuscleGroupMap[ex.name];
                       return (
                         <button
                           key={ex.name}
@@ -255,13 +245,7 @@ export function UnsavedExerciseCard({
                           onMouseDown={() => handleSelectExercise(ex.name)}
                         >
                           {ex.name}
-                          {mg && (
-                            <span
-                              className={`text-xs px-2 py-0.5 rounded-full ${MUSCLE_GROUP_COLORS[mg]}`}
-                            >
-                              {mg}
-                            </span>
-                          )}
+                          {pillMg && <MuscleGroupPill muscleGroup={pillMg} />}
                         </button>
                       );
                     })}

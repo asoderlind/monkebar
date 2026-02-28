@@ -19,8 +19,10 @@ import {
 } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, Dumbbell } from "lucide-react";
 import type { ExerciseMaster, MuscleGroup, ExerciseCategory } from "@monke-bar/shared";
-import { MUSCLE_GROUPS, MUSCLE_GROUP_COLORS, EXERCISE_CATEGORIES } from "@monke-bar/shared";
+import { MUSCLE_GROUPS } from "@monke-bar/shared";
 import { EXERCISE_CATEGORY_CONFIG } from "@/lib/exerciseCategories";
+import { MuscleGroupPill } from "@/components/ui/MuscleGroupPill";
+import { CategoryButtonGroup } from "@/components/ui/CategoryButtonGroup";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ExercisesView() {
@@ -187,15 +189,10 @@ export function ExercisesView() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{exercise.name}</span>
-                    {showBadge && exercise.muscleGroup && (
-                      <span
-                        className={`text-xs px-1.5 py-0.5 rounded-full ${
-                          MUSCLE_GROUP_COLORS[exercise.muscleGroup as MuscleGroup] ||
-                          "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {exercise.muscleGroup}
-                      </span>
+                    {showBadge && (exercise.category === "Cardio" || exercise.muscleGroup) && (
+                      <MuscleGroupPill
+                        muscleGroup={exercise.category === "Cardio" ? "Heart" : exercise.muscleGroup}
+                      />
                     )}
                   </div>
                   {exercise.notes && (
@@ -240,13 +237,7 @@ export function ExercisesView() {
                         <div className="space-y-4">
                           {Object.keys(byMuscle).sort().map((mg) => (
                             <div key={mg}>
-                              <span
-                                className={`text-xs px-1.5 py-0.5 rounded-full mb-2 inline-block ${
-                                  MUSCLE_GROUP_COLORS[mg as MuscleGroup] || "bg-muted text-muted-foreground"
-                                }`}
-                              >
-                                {mg}
-                              </span>
+                              <MuscleGroupPill muscleGroup={mg} />
                               <div className="space-y-2 mt-1">
                                 {byMuscle[mg]
                                   .sort((a, b) => a.name.localeCompare(b.name))
@@ -303,24 +294,17 @@ export function ExercisesView() {
                 <label className="text-sm font-medium leading-none">
                   Category
                 </label>
-                <div className="flex gap-1">
-                  {EXERCISE_CATEGORIES.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      className={`flex-1 px-3 py-2 text-sm rounded-md border transition-colors ${
-                        formData.category === cat
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background border-input hover:bg-accent"
-                      }`}
-                      onClick={() => setFormData({ ...formData, category: cat })}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
+                <CategoryButtonGroup
+                  value={formData.category}
+                  onChange={(cat) => setFormData({ ...formData, category: cat })}
+                />
               </div>
-              {formData.category !== "Cardio" && (
+              {formData.category === "Cardio" ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium leading-none">Muscle Group</label>
+                  <div><MuscleGroupPill muscleGroup="Heart" /></div>
+                </div>
+              ) : (
                 <div className="space-y-2">
                   <label
                     htmlFor="muscleGroup"
@@ -351,13 +335,13 @@ export function ExercisesView() {
               )}
               <div className="space-y-2">
                 <label
-                  htmlFor="notes"
+                  htmlFor="add-notes"
                   className="text-sm font-medium leading-none"
                 >
                   Notes
                 </label>
                 <Textarea
-                  id="notes"
+                  id="add-notes"
                   placeholder="Add any notes about this exercise (e.g., form cues, variations, equipment settings)"
                   value={formData.notes}
                   onChange={(e) =>
@@ -415,24 +399,17 @@ export function ExercisesView() {
                 <label className="text-sm font-medium leading-none">
                   Category
                 </label>
-                <div className="flex gap-1">
-                  {EXERCISE_CATEGORIES.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      className={`flex-1 px-3 py-2 text-sm rounded-md border transition-colors ${
-                        formData.category === cat
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background border-input hover:bg-accent"
-                      }`}
-                      onClick={() => setFormData({ ...formData, category: cat })}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
+                <CategoryButtonGroup
+                  value={formData.category}
+                  onChange={(cat) => setFormData({ ...formData, category: cat })}
+                />
               </div>
-              {formData.category !== "Cardio" && (
+              {formData.category === "Cardio" ? (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium leading-none">Muscle Group</label>
+                  <div><MuscleGroupPill muscleGroup="Heart" /></div>
+                </div>
+              ) : (
                 <div className="space-y-2">
                   <label
                     htmlFor="edit-muscleGroup"

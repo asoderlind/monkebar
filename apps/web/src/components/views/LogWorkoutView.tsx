@@ -333,6 +333,7 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
           variant={supersetMode ? "default" : "outline"}
           size="sm"
           onClick={toggleSupersetMode}
+          disabled={unsavedExercise.category === "Cardio"}
         >
           {supersetMode ? "ON" : "OFF"}
         </Button>
@@ -475,7 +476,7 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
                     )}
                     <SavedExerciseCard
                       exerciseName={exercise.name}
-                      muscleGroup={exerciseMuscleGroupMap[exercise.name]}
+                      muscleGroup={exercise.cardio ? "Heart" : exerciseMuscleGroupMap[exercise.name]}
                       sets={exercise.sets}
                       cardio={exercise.cardio}
                       groupId={exercise.groupId}
