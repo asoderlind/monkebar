@@ -234,9 +234,7 @@ export function UnsavedExerciseCard({
                         .includes(exerciseName.toLowerCase())
                     )
                     .map((ex) => {
-                      const pillMg = ex.category === "Cardio"
-                        ? "Heart"
-                        : exerciseMuscleGroupMap[ex.name];
+                      const mg = exerciseMuscleGroupMap[ex.name];
                       return (
                         <button
                           key={ex.name}
@@ -245,7 +243,7 @@ export function UnsavedExerciseCard({
                           onMouseDown={() => handleSelectExercise(ex.name)}
                         >
                           {ex.name}
-                          {pillMg && <MuscleGroupPill muscleGroup={pillMg} />}
+                          {mg && <MuscleGroupPill muscleGroup={mg} />}
                         </button>
                       );
                     })}

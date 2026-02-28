@@ -189,10 +189,8 @@ export function ExercisesView() {
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium">{exercise.name}</span>
-                    {showBadge && (exercise.category === "Cardio" || exercise.muscleGroup) && (
-                      <MuscleGroupPill
-                        muscleGroup={exercise.category === "Cardio" ? "Heart" : exercise.muscleGroup}
-                      />
+                    {showBadge && exercise.muscleGroup && (
+                      <MuscleGroupPill muscleGroup={exercise.muscleGroup} />
                     )}
                   </div>
                   {exercise.notes && (
@@ -325,7 +323,7 @@ export function ExercisesView() {
                     required
                   >
                     <option value="">Select muscle group</option>
-                    {MUSCLE_GROUPS.map((group) => (
+                    {MUSCLE_GROUPS.filter((g) => g !== "Heart").map((group) => (
                       <option key={group} value={group}>
                         {group}
                       </option>
@@ -430,7 +428,7 @@ export function ExercisesView() {
                     required
                   >
                     <option value="">Select muscle group</option>
-                    {MUSCLE_GROUPS.map((group) => (
+                    {MUSCLE_GROUPS.filter((g) => g !== "Heart").map((group) => (
                       <option key={group} value={group}>
                         {group}
                       </option>

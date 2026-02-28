@@ -2,10 +2,11 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Check, Trash2 } from "lucide-react";
 import { MuscleGroupPill } from "@/components/ui/MuscleGroupPill";
 import { Button } from "@/components/ui/button";
+import type { MuscleGroup } from "@monke-bar/shared";
 
 interface SavedExerciseCardProps {
   exerciseName: string;
-  muscleGroup?: string | null;
+  muscleGroup?: MuscleGroup | null;
   sets: Array<{ weight: number; reps: number; isWarmup: boolean }>;
   cardio?: { duration: number; level?: number; distance?: number };
   groupId?: string;

@@ -28,6 +28,7 @@ const MUSCLE_GROUP_SOLID_COLORS: Record<MuscleGroup, string> = {
   Back: "#3b82f6",
   Legs: "#a855f7",
   Core: "#ec4899",
+  Heart: "#f43f5e",
 };
 
 interface MuscleGroupCalendarProps {
@@ -56,13 +57,15 @@ export function MuscleGroupCalendar({
   const { data: workouts } = useWorkouts();
   const { data: exerciseMaster } = useExercises();
 
-  // Create a map of exercise names to muscle groups
+  // Create a map of exercise names to muscle groups (Cardio → "Heart")
   const exerciseToMuscleGroup = useMemo(() => {
     if (!exerciseMaster) return new Map<string, MuscleGroup>();
 
     const map = new Map<string, MuscleGroup>();
     exerciseMaster.forEach((exercise) => {
-      map.set(exercise.name.toLowerCase(), exercise.muscleGroup);
+      if (exercise.muscleGroup) {
+        map.set(exercise.name.toLowerCase(), exercise.muscleGroup as MuscleGroup);
+      }
     });
     return map;
   }, [exerciseMaster]);

@@ -196,13 +196,17 @@ exercisesRoutes.put(
         }
       }
 
+      const effectiveCategory = body.category ?? existingExercise.category;
+      const effectiveMuscleGroup =
+        effectiveCategory === "Cardio" ? "Heart" : body.muscleGroup;
+
       const [updatedExercise] = await db
         .update(exerciseMaster)
         .set({
           ...(body.name && { name: body.name }),
           ...(body.category !== undefined && { category: body.category }),
-          ...(body.muscleGroup !== undefined && {
-            muscleGroup: body.muscleGroup,
+          ...(effectiveMuscleGroup !== undefined && {
+            muscleGroup: effectiveMuscleGroup,
           }),
           ...(body.notes !== undefined && { notes: body.notes }),
         })

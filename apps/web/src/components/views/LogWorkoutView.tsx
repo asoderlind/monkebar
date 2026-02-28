@@ -476,7 +476,7 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
                     )}
                     <SavedExerciseCard
                       exerciseName={exercise.name}
-                      muscleGroup={exercise.cardio ? "Heart" : exerciseMuscleGroupMap[exercise.name]}
+                      muscleGroup={exerciseMuscleGroupMap[exercise.name]}
                       sets={exercise.sets}
                       cardio={exercise.cardio}
                       groupId={exercise.groupId}

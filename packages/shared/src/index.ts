@@ -260,7 +260,8 @@ export type MuscleGroup =
   | "Biceps"
   | "Back"
   | "Legs"
-  | "Core";
+  | "Core"
+  | "Heart";
 
 export const MUSCLE_GROUPS: MuscleGroup[] = [
   "Chest",
@@ -270,6 +271,7 @@ export const MUSCLE_GROUPS: MuscleGroup[] = [
   "Back",
   "Legs",
   "Core",
+  "Heart",
 ];
 
 /**
@@ -283,6 +285,7 @@ export const MUSCLE_GROUP_COLORS: Record<MuscleGroup, string> = {
   Back: "bg-blue-500/20 text-blue-700 dark:text-blue-400",
   Legs: "bg-purple-500/20 text-purple-700 dark:text-purple-400",
   Core: "bg-pink-500/20 text-pink-700 dark:text-pink-400",
+  Heart: "bg-rose-500/20 text-rose-700 dark:text-rose-400",
 };
 
 // ============================================================================
