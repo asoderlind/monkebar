@@ -15,12 +15,11 @@ ALTER TABLE "exercises"
 -- 3. Backfill exercise_master_id by matching name + user (only fills NULLs, idempotent)
 UPDATE "exercises" e
 SET exercise_master_id = em.id
-FROM "workout_sessions" ws
-JOIN "exercise_master" em
-  ON LOWER(em.name) = LOWER(e.name)
+FROM "workout_sessions" ws, "exercise_master" em
+WHERE e.session_id = ws.id
+  AND LOWER(em.name) = LOWER(e.name)
   AND em.user_id = ws.user_id
   AND em.deleted_at IS NULL
-WHERE e.session_id = ws.id
   AND e.exercise_master_id IS NULL;
 
 -- 4. Create dedicated cardio_sessions table (IF NOT EXISTS)
