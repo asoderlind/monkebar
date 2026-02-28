@@ -20,6 +20,7 @@ import {
 import { Plus, Pencil, Trash2, Dumbbell } from "lucide-react";
 import type { ExerciseMaster, MuscleGroup, ExerciseCategory } from "@monke-bar/shared";
 import { MUSCLE_GROUPS, MUSCLE_GROUP_COLORS, EXERCISE_CATEGORIES } from "@monke-bar/shared";
+import { EXERCISE_CATEGORY_CONFIG } from "@/lib/exerciseCategories";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ExercisesView() {
@@ -69,12 +70,13 @@ export function ExercisesView() {
 
   const handleSubmitAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim() || !formData.muscleGroup) return;
+    if (!formData.name.trim()) return;
+    if (formData.category !== "Cardio" && !formData.muscleGroup) return;
 
     await createMutation.mutateAsync({
       name: formData.name.trim(),
       category: formData.category,
-      muscleGroup: formData.muscleGroup,
+      muscleGroup: formData.muscleGroup || undefined,
       notes: formData.notes.trim() || undefined,
     });
 
@@ -84,15 +86,15 @@ export function ExercisesView() {
 
   const handleSubmitEdit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedExercise || !formData.name.trim() || !formData.muscleGroup)
-      return;
+    if (!selectedExercise || !formData.name.trim()) return;
+    if (formData.category !== "Cardio" && !formData.muscleGroup) return;
 
     await updateMutation.mutateAsync({
       id: selectedExercise.id,
       data: {
         name: formData.name.trim(),
         category: formData.category,
-        muscleGroup: formData.muscleGroup,
+        muscleGroup: formData.muscleGroup || undefined,
         notes: formData.notes.trim() || undefined,
       },
     });
@@ -133,15 +135,15 @@ export function ExercisesView() {
     );
   }
 
-  // Group exercises by muscle group
+  // Group exercises by category
   const groupedExercises = exercises?.reduce((acc, exercise) => {
-    const group = exercise.muscleGroup || "Uncategorized";
+    const group = (exercise.category as ExerciseCategory) || "Strength";
     if (!acc[group]) {
       acc[group] = [];
     }
     acc[group].push(exercise);
     return acc;
-  }, {} as Record<string, ExerciseMaster[]>);
+  }, {} as Record<ExerciseCategory, ExerciseMaster[]>);
 
   return (
     <div className="p-4 space-y-4">
@@ -173,76 +175,99 @@ export function ExercisesView() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {Object.entries(groupedExercises || {})
-            .sort(([a], [b]) => {
-              // Sort muscle groups, with "Uncategorized" last
-              if (a === "Uncategorized") return 1;
-              if (b === "Uncategorized") return -1;
-              return a.localeCompare(b);
-            })
-            .map(([muscleGroup, groupExercises]) => (
-              <Card key={muscleGroup}>
+          {EXERCISE_CATEGORY_CONFIG.filter(({ cat }) => groupedExercises?.[cat]?.length).map(({ cat, icon: Icon }) => {
+            const groupExercises = groupedExercises![cat];
+
+            // Helper to render a single exercise row
+            const renderExerciseRow = (exercise: ExerciseMaster, showBadge = false) => (
+              <div
+                key={exercise.id}
+                className="flex items-start justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
+              >
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{exercise.name}</span>
+                    {showBadge && exercise.muscleGroup && (
+                      <span
+                        className={`text-xs px-1.5 py-0.5 rounded-full ${
+                          MUSCLE_GROUP_COLORS[exercise.muscleGroup as MuscleGroup] ||
+                          "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {exercise.muscleGroup}
+                      </span>
+                    )}
+                  </div>
+                  {exercise.notes && (
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {exercise.notes}
+                    </p>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 ml-2">
+                  <Button variant="ghost" size="sm" onClick={() => handleEdit(exercise)}>
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => handleDelete(exercise)}>
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
+              </div>
+            );
+
+            return (
+              <Card key={cat}>
                 <CardHeader className="pb-3">
                   <CardTitle className="text-lg flex items-center gap-2">
-                    <span
-                      className={`px-2 py-1 rounded-md text-sm font-medium ${
-                        MUSCLE_GROUP_COLORS[muscleGroup as MuscleGroup] ||
-                        "bg-gray-500/20 text-gray-700 dark:text-gray-400"
-                      }`}
-                    >
-                      {muscleGroup}
-                    </span>
+                    <Icon className="h-5 w-5 text-muted-foreground" />
+                    {cat}
                     <span className="text-muted-foreground text-sm font-normal">
                       ({groupExercises.length})
                     </span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    {groupExercises
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((exercise) => (
-                        <div
-                          key={exercise.id}
-                          className="flex items-start justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                        >
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{exercise.name}</span>
-                              {exercise.category && exercise.category !== "Strength" && (
-                                <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                                  {exercise.category}
-                                </span>
-                              )}
+                  {cat === "Strength" ? (
+                    // Sub-group Strength exercises by muscle group
+                    (() => {
+                      const byMuscle = groupExercises.reduce((acc, ex) => {
+                        const mg = ex.muscleGroup || "Other";
+                        if (!acc[mg]) acc[mg] = [];
+                        acc[mg].push(ex);
+                        return acc;
+                      }, {} as Record<string, ExerciseMaster[]>);
+                      return (
+                        <div className="space-y-4">
+                          {Object.keys(byMuscle).sort().map((mg) => (
+                            <div key={mg}>
+                              <span
+                                className={`text-xs px-1.5 py-0.5 rounded-full mb-2 inline-block ${
+                                  MUSCLE_GROUP_COLORS[mg as MuscleGroup] || "bg-muted text-muted-foreground"
+                                }`}
+                              >
+                                {mg}
+                              </span>
+                              <div className="space-y-2 mt-1">
+                                {byMuscle[mg]
+                                  .sort((a, b) => a.name.localeCompare(b.name))
+                                  .map((ex) => renderExerciseRow(ex, false))}
+                              </div>
                             </div>
-                            {exercise.notes && (
-                              <p className="text-sm text-muted-foreground mt-1">
-                                {exercise.notes}
-                              </p>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 ml-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(exercise)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDelete(exercise)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </div>
+                          ))}
                         </div>
-                      ))}
-                  </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="space-y-2">
+                      {groupExercises
+                        .sort((a, b) => a.name.localeCompare(b.name))
+                        .map((exercise) => renderExerciseRow(exercise, true))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
-            ))}
+            );
+          })}
         </div>
       )}
 
@@ -295,33 +320,35 @@ export function ExercisesView() {
                   ))}
                 </div>
               </div>
-              <div className="space-y-2">
-                <label
-                  htmlFor="muscleGroup"
-                  className="text-sm font-medium leading-none"
-                >
-                  Muscle Group <span className="text-destructive">*</span>
-                </label>
-                <select
-                  id="muscleGroup"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  value={formData.muscleGroup}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      muscleGroup: e.target.value as MuscleGroup | "",
-                    })
-                  }
-                  required
-                >
-                  <option value="">Select muscle group</option>
-                  {MUSCLE_GROUPS.map((group) => (
-                    <option key={group} value={group}>
-                      {group}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {formData.category !== "Cardio" && (
+                <div className="space-y-2">
+                  <label
+                    htmlFor="muscleGroup"
+                    className="text-sm font-medium leading-none"
+                  >
+                    Muscle Group <span className="text-destructive">*</span>
+                  </label>
+                  <select
+                    id="muscleGroup"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={formData.muscleGroup}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        muscleGroup: e.target.value as MuscleGroup | "",
+                      })
+                    }
+                    required
+                  >
+                    <option value="">Select muscle group</option>
+                    {MUSCLE_GROUPS.map((group) => (
+                      <option key={group} value={group}>
+                        {group}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="space-y-2">
                 <label
                   htmlFor="notes"
@@ -405,33 +432,35 @@ export function ExercisesView() {
                   ))}
                 </div>
               </div>
-              <div className="space-y-2">
-                <label
-                  htmlFor="edit-muscleGroup"
-                  className="text-sm font-medium leading-none"
-                >
-                  Muscle Group <span className="text-destructive">*</span>
-                </label>
-                <select
-                  id="edit-muscleGroup"
-                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  value={formData.muscleGroup}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      muscleGroup: e.target.value as MuscleGroup | "",
-                    })
-                  }
-                  required
-                >
-                  <option value="">Select muscle group</option>
-                  {MUSCLE_GROUPS.map((group) => (
-                    <option key={group} value={group}>
-                      {group}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {formData.category !== "Cardio" && (
+                <div className="space-y-2">
+                  <label
+                    htmlFor="edit-muscleGroup"
+                    className="text-sm font-medium leading-none"
+                  >
+                    Muscle Group <span className="text-destructive">*</span>
+                  </label>
+                  <select
+                    id="edit-muscleGroup"
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                    value={formData.muscleGroup}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        muscleGroup: e.target.value as MuscleGroup | "",
+                      })
+                    }
+                    required
+                  >
+                    <option value="">Select muscle group</option>
+                    {MUSCLE_GROUPS.map((group) => (
+                      <option key={group} value={group}>
+                        {group}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="space-y-2">
                 <label
                   htmlFor="edit-notes"

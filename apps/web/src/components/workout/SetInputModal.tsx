@@ -15,6 +15,7 @@ interface SetInputModalProps {
   type: "weight" | "reps";
   value: number;
   onAccept: (value: number) => void;
+  label?: string;
 }
 
 export function SetInputModal({
@@ -23,6 +24,7 @@ export function SetInputModal({
   type,
   value,
   onAccept,
+  label,
 }: SetInputModalProps) {
   const [currentValue, setCurrentValue] = useState(value);
 
@@ -64,7 +66,7 @@ export function SetInputModal({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            Set {type === "weight" ? "Weight (kg)" : "Reps"}
+            {label ?? (type === "weight" ? "Set Weight (kg)" : "Set Reps")}
           </DialogTitle>
         </DialogHeader>
         <div className="flex items-center justify-center gap-4 py-8">

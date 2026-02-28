@@ -302,7 +302,7 @@ export interface ExerciseMaster {
 export interface NewExerciseMaster {
   name: string;
   category?: ExerciseCategory;
-  muscleGroup: MuscleGroup;
+  muscleGroup?: MuscleGroup;
   notes?: string;
 }
 

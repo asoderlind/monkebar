@@ -3,11 +3,11 @@ import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ChevronDown, Loader2, RotateCcw, Save } from "lucide-react";
+import { EXERCISE_CATEGORY_CONFIG } from "@/lib/exerciseCategories";
 import { useExercises } from "@/hooks/useExercises";
 import { useExerciseHistory } from "@/hooks/useWorkouts";
 import {
   MUSCLE_GROUP_COLORS,
-  EXERCISE_CATEGORIES,
   type MuscleGroup,
   type ExerciseCategory,
   type WorkoutSet,
@@ -72,9 +72,11 @@ export function UnsavedExerciseCard({
   showSaveButton = true,
 }: UnsavedExerciseCardProps) {
   const [showExerciseDropdown, setShowExerciseDropdown] = useState(false);
+  const [exerciseSelected, setExerciseSelected] = useState(false);
   const [modalState, setModalState] = useState<{
     open: boolean;
     type: "weight" | "reps";
+    label?: string;
     target:
       | { kind: "strength"; setIndex: number | "warmup"; field: "weight" | "reps" }
       | { kind: "cardioDuration" }
@@ -114,6 +116,7 @@ export function UnsavedExerciseCard({
   const handleSelectExercise = (name: string) => {
     onExerciseNameChange(name);
     setShowExerciseDropdown(false);
+    setExerciseSelected(true);
     // Auto-switch category if the picked exercise belongs to a different one
     const picked = exercisesData?.find((ex) => ex.name === name);
     if (picked && picked.category !== category) {
@@ -146,13 +149,21 @@ export function UnsavedExerciseCard({
     });
   };
 
+  const CARDIO_MODAL_CONFIG = {
+    cardioDuration: { type: "reps" as const, label: "Set Duration (min)" },
+    cardioLevel: { type: "reps" as const, label: "Set Level" },
+    cardioDistance: { type: "weight" as const, label: "Set Distance (km)" },
+  };
+
   const openCardioModal = (
     kind: "cardioDuration" | "cardioLevel" | "cardioDistance",
     currentValue: number | null
   ) => {
+    const { type, label } = CARDIO_MODAL_CONFIG[kind];
     setModalState({
       open: true,
-      type: kind === "cardioDistance" ? "weight" : "reps",
+      type,
+      label,
       target: { kind },
       value: currentValue ?? 0,
     });
@@ -186,17 +197,23 @@ export function UnsavedExerciseCard({
         <CardHeader className="pb-2">
           {/* Category button group */}
           <div className="flex gap-1 mb-2">
-            {EXERCISE_CATEGORIES.map((cat) => (
+            {EXERCISE_CATEGORY_CONFIG.map(({ cat, icon: Icon }) => (
               <Button
                 key={cat}
-                variant={category === cat ? "default" : "outline"}
+                variant={category === cat ? "secondary" : "ghost"}
                 size="sm"
-                className="flex-1 text-xs"
+                className={
+                  category === cat
+                    ? "flex-1 text-xs gap-1 bg-zinc-900 text-zinc-50 hover:bg-zinc-800 dark:bg-zinc-50 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                    : "flex-1 text-xs gap-1"
+                }
                 onClick={() => {
                   onCategoryChange(cat);
                   onExerciseNameChange("");
+                  setExerciseSelected(false);
                 }}
               >
+                <Icon className="h-3 w-3" />
                 {cat}
               </Button>
             ))}
@@ -207,7 +224,10 @@ export function UnsavedExerciseCard({
               <Input
                 placeholder="Exercise name"
                 value={exerciseName}
-                onChange={(e) => onExerciseNameChange(e.target.value)}
+                onChange={(e) => {
+                  onExerciseNameChange(e.target.value);
+                  setExerciseSelected(false);
+                }}
                 onFocus={() => setShowExerciseDropdown(true)}
                 onBlur={() =>
                   setTimeout(() => setShowExerciseDropdown(false), 200)
@@ -260,7 +280,11 @@ export function UnsavedExerciseCard({
         </CardHeader>
 
         <CardContent>
-          {category === "Cardio" ? (
+          {!exerciseSelected ? (
+            <p className="text-sm text-muted-foreground text-center py-4">
+              Choose an exercise above to log sets
+            </p>
+          ) : category === "Cardio" ? (
             /* Cardio input: duration + level + distance */
             <div className="space-y-2">
               <div className="flex items-center gap-2">
@@ -273,7 +297,6 @@ export function UnsavedExerciseCard({
                   onClick={() =>
                     openCardioModal("cardioDuration", cardioDuration)
                   }
-                  disabled={!exerciseName.trim()}
                 >
                   {cardioDuration > 0 ? `${cardioDuration} min` : "0 min"}
                 </Button>
@@ -284,7 +307,6 @@ export function UnsavedExerciseCard({
                   variant="outline"
                   className="flex-1 h-12 text-base font-semibold"
                   onClick={() => openCardioModal("cardioLevel", cardioLevel)}
-                  disabled={!exerciseName.trim()}
                 >
                   {cardioLevel != null ? cardioLevel : "—"}
                 </Button>
@@ -299,7 +321,6 @@ export function UnsavedExerciseCard({
                   onClick={() =>
                     openCardioModal("cardioDistance", cardioDistance)
                   }
-                  disabled={!exerciseName.trim()}
                 >
                   {cardioDistance != null ? `${cardioDistance} km` : "—"}
                 </Button>
@@ -320,8 +341,7 @@ export function UnsavedExerciseCard({
                     onClick={() =>
                       openStrengthModal("warmup", "weight", warmup.weight)
                     }
-                    disabled={!exerciseName.trim()}
-                  >
+                    >
                     {warmup.weight === 0 && lastWarmup ? (
                       <span className="!text-gray-400">
                         {`${lastWarmup.weight}kg`}
@@ -337,8 +357,7 @@ export function UnsavedExerciseCard({
                     onClick={() =>
                       openStrengthModal("warmup", "reps", warmup.reps)
                     }
-                    disabled={!exerciseName.trim()}
-                  >
+                    >
                     {warmup.reps === 0 && lastWarmup ? (
                       <span className="!text-gray-400">
                         {lastWarmup.reps || "0"}
@@ -403,8 +422,7 @@ export function UnsavedExerciseCard({
                         onClick={() =>
                           openStrengthModal(setIndex, "weight", set.weight)
                         }
-                        disabled={!exerciseName.trim()}
-                      >
+                            >
                         {set.weight === 0 && lastSet ? (
                           <span className="!text-gray-400">
                             {lastSet.weight}kg
@@ -420,8 +438,7 @@ export function UnsavedExerciseCard({
                         onClick={() =>
                           openStrengthModal(setIndex, "reps", set.reps)
                         }
-                        disabled={!exerciseName.trim()}
-                      >
+                            >
                         {set.reps === 0 && lastSet ? (
                           <span className="!text-gray-400">
                             {lastSet.reps || "0"}
@@ -478,7 +495,7 @@ export function UnsavedExerciseCard({
               <Button
                 className="w-full"
                 onClick={onSave}
-                disabled={isSaving || !exerciseName.trim()}
+                disabled={isSaving || !exerciseSelected}
               >
                 {isSaving ? (
                   <>
@@ -503,6 +520,7 @@ export function UnsavedExerciseCard({
           open={modalState.open}
           onOpenChange={(open) => !open && setModalState(null)}
           type={modalState.type}
+          label={modalState.label}
           value={modalState.value}
           onAccept={handleModalAccept}
         />

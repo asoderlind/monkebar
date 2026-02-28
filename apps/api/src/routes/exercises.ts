@@ -18,7 +18,7 @@ const createExerciseSchema = z.object({
   category: z
     .enum(EXERCISE_CATEGORIES as [string, ...string[]])
     .default("Strength"),
-  muscleGroup: z.enum(MUSCLE_GROUPS as [string, ...string[]]),
+  muscleGroup: z.enum(MUSCLE_GROUPS as [string, ...string[]]).optional(),
   notes: z.string().optional(),
 });
 
@@ -127,7 +127,7 @@ exercisesRoutes.post(
           userId: user.id,
           name: body.name,
           category: body.category,
-          muscleGroup: body.muscleGroup,
+          muscleGroup: body.muscleGroup ?? (body.category === "Cardio" ? "Heart" : ""),
           notes: body.notes,
         })
         .returning();
