@@ -1,8 +1,10 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { useWorkouts } from "@/hooks/useWorkouts";
+import { useExercises } from "@/hooks/useExercises";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { getDayOfWeek, type Workout } from "@monke-bar/shared";
+import { getDayOfWeek, type MuscleGroup, type Workout } from "@monke-bar/shared";
 import { MuscleGroupCalendar } from "@/components/MuscleGroupCalendar";
+import { MuscleGroupPill } from "@/components/ui/MuscleGroupPill";
 
 interface GroupedDay {
   date: string;
@@ -11,6 +13,16 @@ interface GroupedDay {
 
 export function HistoryView() {
   const { data: workouts, isLoading } = useWorkouts();
+  const { data: exerciseMaster } = useExercises();
+
+  const exerciseToMuscleGroup = useMemo(() => {
+    if (!exerciseMaster) return new Map<string, MuscleGroup>();
+    const map = new Map<string, MuscleGroup>();
+    exerciseMaster.forEach((ex) => {
+      if (ex.muscleGroup) map.set(ex.name.toLowerCase(), ex.muscleGroup);
+    });
+    return map;
+  }, [exerciseMaster]);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const workoutCardRef = useRef<HTMLDivElement>(null);
 
@@ -98,7 +110,13 @@ export function HistoryView() {
               <div className="space-y-2">
                 {selectedDayWorkout.workout.exercises.map((exercise, idx) => (
                   <div key={idx} className="p-2 rounded-lg bg-secondary/30">
-                    <p className="font-medium text-sm mb-1">{exercise.name}</p>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="font-medium text-sm">{exercise.name}</p>
+                      {(() => {
+                        const mg = exerciseToMuscleGroup.get(exercise.name.toLowerCase());
+                        return mg ? <MuscleGroupPill muscleGroup={mg} /> : null;
+                      })()}
+                    </div>
                     <div className="flex flex-wrap gap-1">
                       {exercise.cardio ? (
                         <>
