@@ -92,6 +92,30 @@ export const workoutSessions = pgTable(
 );
 
 // ============================================================================
+// Exercise Master List - Normalized exercise names
+// Defined before exercises so exercises can reference it via FK
+// ============================================================================
+
+export const exerciseMaster = pgTable(
+  "exercise_master",
+  {
+    id: serial("id").primaryKey(),
+    userId: varchar("user_id", { length: 36 })
+      .references(() => users.id, { onDelete: "cascade" })
+      .notNull(),
+    name: varchar("name", { length: 255 }).notNull(),
+    category: varchar("category", { length: 20 }).notNull().default("Strength"),
+    muscleGroup: varchar("muscle_group", { length: 100 }).notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    deletedAt: timestamp("deleted_at"),
+  },
+  (table) => [
+    uniqueIndex("exercise_user_name_idx").on(table.userId, table.name),
+  ]
+);
+
+// ============================================================================
 // Exercises - Individual exercises performed in a session
 // ============================================================================
 
@@ -100,6 +124,10 @@ export const exercises = pgTable("exercises", {
   sessionId: integer("session_id")
     .references(() => workoutSessions.id, { onDelete: "cascade" })
     .notNull(),
+  exerciseMasterId: integer("exercise_master_id").references(
+    () => exerciseMaster.id,
+    { onDelete: "set null" }
+  ),
   name: varchar("name", { length: 255 }).notNull(),
   orderIndex: integer("order_index").notNull(), // Order within the day
   groupId: varchar("group_id", { length: 50 }), // ID for linking superset exercises (e.g., "SS1")
@@ -108,7 +136,7 @@ export const exercises = pgTable("exercises", {
 });
 
 // ============================================================================
-// Sets - Individual sets for each exercise
+// Sets - Individual sets for strength/calisthenics exercises
 // ============================================================================
 
 export const sets = pgTable("sets", {
@@ -124,26 +152,20 @@ export const sets = pgTable("sets", {
 });
 
 // ============================================================================
-// Exercise Master List - Normalized exercise names
+// Cardio Sessions - Dedicated table for cardio exercise data
 // ============================================================================
 
-export const exerciseMaster = pgTable(
-  "exercise_master",
-  {
-    id: serial("id").primaryKey(),
-    userId: varchar("user_id", { length: 36 })
-      .references(() => users.id, { onDelete: "cascade" })
-      .notNull(),
-    name: varchar("name", { length: 255 }).notNull(),
-    muscleGroup: varchar("muscle_group", { length: 100 }).notNull(),
-    notes: text("notes"),
-    createdAt: timestamp("created_at").defaultNow().notNull(),
-    deletedAt: timestamp("deleted_at"),
-  },
-  (table) => [
-    uniqueIndex("exercise_user_name_idx").on(table.userId, table.name),
-  ]
-);
+export const cardioSessions = pgTable("cardio_sessions", {
+  id: serial("id").primaryKey(),
+  exerciseId: integer("exercise_id")
+    .references(() => exercises.id, { onDelete: "cascade" })
+    .notNull()
+    .unique(), // one cardio record per exercise entry
+  duration: integer("duration").notNull(), // seconds
+  level: integer("level"), // machine resistance level (optional)
+  distance: decimal("distance", { precision: 6, scale: 2 }), // km (optional)
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
 
 // ============================================================================
 // Measurements - Body measurements tracking (weight, etc.)
@@ -199,12 +221,27 @@ export const exercisesRelations = relations(exercises, ({ one, many }) => ({
     fields: [exercises.sessionId],
     references: [workoutSessions.id],
   }),
+  exerciseMaster: one(exerciseMaster, {
+    fields: [exercises.exerciseMasterId],
+    references: [exerciseMaster.id],
+  }),
   sets: many(sets),
+  cardioSession: one(cardioSessions, {
+    fields: [exercises.id],
+    references: [cardioSessions.exerciseId],
+  }),
 }));
 
 export const setsRelations = relations(sets, ({ one }) => ({
   exercise: one(exercises, {
     fields: [sets.exerciseId],
+    references: [exercises.id],
+  }),
+}));
+
+export const cardioSessionsRelations = relations(cardioSessions, ({ one }) => ({
+  exercise: one(exercises, {
+    fields: [cardioSessions.exerciseId],
     references: [exercises.id],
   }),
 }));
@@ -232,6 +269,9 @@ export type NewExercise = typeof exercises.$inferInsert;
 
 export type Set = typeof sets.$inferSelect;
 export type NewSet = typeof sets.$inferInsert;
+
+export type CardioSession = typeof cardioSessions.$inferSelect;
+export type NewCardioSession = typeof cardioSessions.$inferInsert;
 
 export type ExerciseMaster = typeof exerciseMaster.$inferSelect;
 export type NewExerciseMaster = typeof exerciseMaster.$inferInsert;

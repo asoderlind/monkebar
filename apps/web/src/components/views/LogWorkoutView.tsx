@@ -152,6 +152,7 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
       deleteMutation.mutate({ date: selectedDate, exerciseId });
     }
   };
+
   const handleSave = () => {
     if (!unsavedExercise.name.trim()) {
       return;
@@ -162,56 +163,80 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
     // Generate a unique group ID for this superset if in superset mode
     const groupId = supersetMode ? `SS${Date.now()}` : undefined;
 
-    // Add first exercise
+    // Build first entry
+    const isCardio1 = unsavedExercise.category === "Cardio";
     const entry1: WorkoutLogEntry = {
       date: selectedDate,
       day: selectedDay,
       exercise: unsavedExercise.name.trim(),
-      warmup:
-        unsavedExercise.warmup.reps > 0
-          ? {
-              weight: unsavedExercise.warmup.weight,
-              reps: unsavedExercise.warmup.reps,
-            }
-          : undefined,
-      sets: unsavedExercise.sets
-        .filter((s) => s.reps > 0)
-        .map((s) => ({
-          weight: s.weight,
-          reps: s.reps,
-        })),
       groupId,
       groupType: groupId ? "superset" : undefined,
+      ...(isCardio1
+        ? {
+            cardio: {
+              duration: unsavedExercise.cardioDuration * 60, // minutes → seconds
+              level: unsavedExercise.cardioLevel ?? undefined,
+              distance: unsavedExercise.cardioDistance ?? undefined,
+            },
+          }
+        : {
+            warmup:
+              unsavedExercise.warmup.reps > 0
+                ? {
+                    weight: unsavedExercise.warmup.weight,
+                    reps: unsavedExercise.warmup.reps,
+                  }
+                : undefined,
+            sets: unsavedExercise.sets
+              .filter((s) => s.reps > 0)
+              .map((s) => ({ weight: s.weight, reps: s.reps })),
+          }),
     };
 
-    if (entry1.sets.length > 0 || entry1.warmup) {
+    const entry1HasData = isCardio1
+      ? (unsavedExercise.cardioDuration > 0)
+      : ((entry1.sets?.length ?? 0) > 0 || entry1.warmup != null);
+
+    if (entry1HasData) {
       entries.push(entry1);
     }
 
     // Add second exercise if in superset mode
     if (supersetMode && unsavedExercise2.name.trim()) {
+      const isCardio2 = unsavedExercise2.category === "Cardio";
       const entry2: WorkoutLogEntry = {
         date: selectedDate,
         day: selectedDay,
         exercise: unsavedExercise2.name.trim(),
-        warmup:
-          unsavedExercise2.warmup.reps > 0
-            ? {
-                weight: unsavedExercise2.warmup.weight,
-                reps: unsavedExercise2.warmup.reps,
-              }
-            : undefined,
-        sets: unsavedExercise2.sets
-          .filter((s) => s.reps > 0)
-          .map((s) => ({
-            weight: s.weight,
-            reps: s.reps,
-          })),
         groupId,
         groupType: "superset",
+        ...(isCardio2
+          ? {
+              cardio: {
+                duration: unsavedExercise2.cardioDuration * 60,
+                level: unsavedExercise2.cardioLevel ?? undefined,
+                distance: unsavedExercise2.cardioDistance ?? undefined,
+              },
+            }
+          : {
+              warmup:
+                unsavedExercise2.warmup.reps > 0
+                  ? {
+                      weight: unsavedExercise2.warmup.weight,
+                      reps: unsavedExercise2.warmup.reps,
+                    }
+                  : undefined,
+              sets: unsavedExercise2.sets
+                .filter((s) => s.reps > 0)
+                .map((s) => ({ weight: s.weight, reps: s.reps })),
+            }),
       };
 
-      if (entry2.sets.length > 0 || entry2.warmup) {
+      const entry2HasData = isCardio2
+        ? (unsavedExercise2.cardioDuration > 0)
+        : ((entry2.sets?.length ?? 0) > 0 || entry2.warmup != null);
+
+      if (entry2HasData) {
         entries.push(entry2);
       }
     }
@@ -325,6 +350,10 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
           onExerciseNameChange={(name) =>
             updateExercise((prev) => ({ ...prev, name }))
           }
+          category={unsavedExercise.category}
+          onCategoryChange={(category) =>
+            updateExercise((prev) => ({ ...prev, category }))
+          }
           warmup={unsavedExercise.warmup}
           sets={unsavedExercise.sets}
           onWarmupChange={(warmup) =>
@@ -336,12 +365,23 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
               newSets[index] = set;
               return { ...prev, sets: newSets };
             });
-            // Start rest timer after completing a working set
             if (set.reps > 0) {
               startTimer(restTimerDuration);
               toast.success("Draft saved");
             }
           }}
+          cardioDuration={unsavedExercise.cardioDuration}
+          cardioLevel={unsavedExercise.cardioLevel}
+          cardioDistance={unsavedExercise.cardioDistance}
+          onCardioDurationChange={(v) =>
+            updateExercise((prev) => ({ ...prev, cardioDuration: v }))
+          }
+          onCardioLevelChange={(v) =>
+            updateExercise((prev) => ({ ...prev, cardioLevel: v }))
+          }
+          onCardioDistanceChange={(v) =>
+            updateExercise((prev) => ({ ...prev, cardioDistance: v }))
+          }
           onSave={handleSave}
           onReset={resetDraft}
           isSaving={saveMutation.isPending}
@@ -356,6 +396,10 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
               onExerciseNameChange={(name) =>
                 updateExercise2((prev) => ({ ...prev, name }))
               }
+              category={unsavedExercise2.category}
+              onCategoryChange={(category) =>
+                updateExercise2((prev) => ({ ...prev, category }))
+              }
               warmup={unsavedExercise2.warmup}
               sets={unsavedExercise2.sets}
               onWarmupChange={(warmup) =>
@@ -367,12 +411,23 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
                   newSets[index] = set;
                   return { ...prev, sets: newSets };
                 });
-                // Start rest timer after completing a working set
                 if (set.reps > 0) {
                   startTimer(restTimerDuration);
                   toast.success("Draft saved");
                 }
               }}
+              cardioDuration={unsavedExercise2.cardioDuration}
+              cardioLevel={unsavedExercise2.cardioLevel}
+              cardioDistance={unsavedExercise2.cardioDistance}
+              onCardioDurationChange={(v) =>
+                updateExercise2((prev) => ({ ...prev, cardioDuration: v }))
+              }
+              onCardioLevelChange={(v) =>
+                updateExercise2((prev) => ({ ...prev, cardioLevel: v }))
+              }
+              onCardioDistanceChange={(v) =>
+                updateExercise2((prev) => ({ ...prev, cardioDistance: v }))
+              }
               onSave={handleSave}
               onReset={resetDraft}
               isSaving={saveMutation.isPending}
@@ -404,14 +459,14 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
       {/* Saved exercises (read-only) */}
       {groupedExercises && Object.keys(groupedExercises).length > 0 && (
         <>
-          {Object.values(groupedExercises).map((exercises) => {
-            const isSuperset = exercises.length > 1;
+          {Object.values(groupedExercises).map((exerciseGroup) => {
+            const isSuperset = exerciseGroup.length > 1;
             return (
               <div
-                key={exercises[0].id}
+                key={exerciseGroup[0].id}
                 className={isSuperset ? "space-y-2" : ""}
               >
-                {exercises.map((exercise, idx) => (
+                {exerciseGroup.map((exercise, idx) => (
                   <div key={exercise.id}>
                     {isSuperset && idx === 0 && (
                       <div className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">
@@ -422,6 +477,7 @@ export function LogWorkoutView({ restTimerDuration }: LogWorkoutViewProps) {
                       exerciseName={exercise.name}
                       muscleGroup={exerciseMuscleGroupMap[exercise.name]}
                       sets={exercise.sets}
+                      cardio={exercise.cardio}
                       groupId={exercise.groupId}
                       groupType={exercise.groupType}
                       onDelete={() => handleDeleteExercise(exercise.id)}

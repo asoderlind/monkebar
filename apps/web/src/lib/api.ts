@@ -19,7 +19,8 @@ export interface WorkoutLogEntry {
   day: DayOfWeek;
   exercise: string;
   warmup?: { weight: number; reps: number };
-  sets: Array<{ weight: number; reps: number }>;
+  sets?: Array<{ weight: number; reps: number }>;
+  cardio?: { duration: number; level?: number; distance?: number }; // duration in seconds
   groupId?: string; // ID for linking superset exercises (e.g., "SS1")
   groupType?: "superset"; // Type of grouping
 }

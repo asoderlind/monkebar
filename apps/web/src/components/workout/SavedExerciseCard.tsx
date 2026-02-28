@@ -7,6 +7,7 @@ interface SavedExerciseCardProps {
   exerciseName: string;
   muscleGroup?: MuscleGroup | null;
   sets: Array<{ weight: number; reps: number; isWarmup: boolean }>;
+  cardio?: { duration: number; level?: number; distance?: number };
   groupId?: string;
   groupType?: "superset";
   onDelete?: () => void;
@@ -16,6 +17,7 @@ export function SavedExerciseCard({
   exerciseName,
   muscleGroup,
   sets,
+  cardio,
   groupId,
   groupType,
   onDelete,
@@ -58,37 +60,59 @@ export function SavedExerciseCard({
         </div>
       </CardHeader>
       <CardContent>
-        {warmupSet && (
-          <div className="mb-3">
-            <label className="text-xs font-medium text-muted-foreground uppercase">
-              Warmup
-            </label>
-            <div className="mt-1 flex gap-1">
-              <span className="px-2 py-1 rounded bg-muted text-sm">
-                {warmupSet.weight === 0
-                  ? `${warmupSet.reps} reps`
-                  : `${warmupSet.weight}kg × ${warmupSet.reps}`}
+        {cardio ? (
+          /* Cardio display */
+          <div className="flex flex-wrap gap-2">
+            <span className="px-2 py-1 rounded bg-primary/10 text-sm font-medium">
+              {Math.round(cardio.duration / 60)} min
+            </span>
+            {cardio.level != null && (
+              <span className="px-2 py-1 rounded bg-primary/10 text-sm font-medium">
+                Level {cardio.level}
               </span>
+            )}
+            {cardio.distance != null && (
+              <span className="px-2 py-1 rounded bg-primary/10 text-sm font-medium">
+                {cardio.distance} km
+              </span>
+            )}
+          </div>
+        ) : (
+          /* Strength / Calisthenics display */
+          <>
+            {warmupSet && (
+              <div className="mb-3">
+                <label className="text-xs font-medium text-muted-foreground uppercase">
+                  Warmup
+                </label>
+                <div className="mt-1 flex gap-1">
+                  <span className="px-2 py-1 rounded bg-muted text-sm">
+                    {warmupSet.weight === 0
+                      ? `${warmupSet.reps} reps`
+                      : `${warmupSet.weight}kg × ${warmupSet.reps}`}
+                  </span>
+                </div>
+              </div>
+            )}
+            <div>
+              <label className="text-xs font-medium text-muted-foreground uppercase">
+                Working Sets
+              </label>
+              <div className="mt-1 flex gap-1 flex-wrap">
+                {workingSets.map((set, idx) => (
+                  <span
+                    key={idx}
+                    className="px-2 py-1 rounded bg-primary/10 text-sm font-medium"
+                  >
+                    {set.weight === 0
+                      ? `${set.reps} reps`
+                      : `${set.weight}kg × ${set.reps}`}
+                  </span>
+                ))}
+              </div>
             </div>
-          </div>
+          </>
         )}
-        <div>
-          <label className="text-xs font-medium text-muted-foreground uppercase">
-            Working Sets
-          </label>
-          <div className="mt-1 flex gap-1 flex-wrap">
-            {workingSets.map((set, idx) => (
-              <span
-                key={idx}
-                className="px-2 py-1 rounded bg-primary/10 text-sm font-medium"
-              >
-                {set.weight === 0
-                  ? `${set.reps} reps`
-                  : `${set.weight}kg × ${set.reps}`}
-              </span>
-            ))}
-          </div>
-        </div>
       </CardContent>
     </Card>
   );

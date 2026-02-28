@@ -92,6 +92,9 @@ export interface WorkoutSet {
   reps: number;
   isWarmup: boolean;
   setNumber: number; // 0 = warmup, 1-4 = working sets
+  duration?: number; // seconds (cardio exercises)
+  level?: number; // machine resistance level (cardio)
+  distance?: number; // km (cardio)
 }
 
 /**
@@ -102,6 +105,7 @@ export interface Exercise {
   id: string;
   name: string;
   sets: WorkoutSet[];
+  cardio?: { duration: number; level?: number; distance?: number }; // populated for Cardio exercises
   groupId?: string; // ID for linking superset exercises (e.g., "SS1")
   groupType?: "superset"; // Type of grouping - currently only superset supported
 }
@@ -236,6 +240,17 @@ export const DAYS_OF_WEEK: DayOfWeek[] = [
 ];
 
 /**
+ * Exercise categories
+ */
+export type ExerciseCategory = "Strength" | "Cardio" | "Calisthenics";
+
+export const EXERCISE_CATEGORIES: ExerciseCategory[] = [
+  "Strength",
+  "Cardio",
+  "Calisthenics",
+];
+
+/**
  * Muscle groups
  */
 export type MuscleGroup =
@@ -277,6 +292,7 @@ export const MUSCLE_GROUP_COLORS: Record<MuscleGroup, string> = {
 export interface ExerciseMaster {
   id: number;
   name: string;
+  category: ExerciseCategory;
   muscleGroup: MuscleGroup;
   notes: string | null;
   createdAt: Date;
@@ -285,6 +301,7 @@ export interface ExerciseMaster {
 
 export interface NewExerciseMaster {
   name: string;
+  category?: ExerciseCategory;
   muscleGroup: MuscleGroup;
   notes?: string;
 }

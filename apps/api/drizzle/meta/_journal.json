@@ -64,6 +64,13 @@
       "when": 1769861386500,
       "tag": "0008_mighty_ogun",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1772370000000,
+      "tag": "0009_exercise_category_and_cardio",
+      "breakpoints": true
     }
   ]
 }

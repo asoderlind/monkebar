@@ -18,8 +18,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Plus, Pencil, Trash2, Dumbbell } from "lucide-react";
-import type { ExerciseMaster, MuscleGroup } from "@monke-bar/shared";
-import { MUSCLE_GROUPS, MUSCLE_GROUP_COLORS } from "@monke-bar/shared";
+import type { ExerciseMaster, MuscleGroup, ExerciseCategory } from "@monke-bar/shared";
+import { MUSCLE_GROUPS, MUSCLE_GROUP_COLORS, EXERCISE_CATEGORIES } from "@monke-bar/shared";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 export function ExercisesView() {
@@ -36,12 +36,13 @@ export function ExercisesView() {
 
   const [formData, setFormData] = useState({
     name: "",
+    category: "Strength" as ExerciseCategory,
     muscleGroup: "" as MuscleGroup | "",
     notes: "",
   });
 
   const resetForm = () => {
-    setFormData({ name: "", muscleGroup: "", notes: "" });
+    setFormData({ name: "", category: "Strength", muscleGroup: "", notes: "" });
     setSelectedExercise(null);
   };
 
@@ -54,6 +55,7 @@ export function ExercisesView() {
     setSelectedExercise(exercise);
     setFormData({
       name: exercise.name,
+      category: (exercise.category as ExerciseCategory) || "Strength",
       muscleGroup: (exercise.muscleGroup as MuscleGroup) || "",
       notes: exercise.notes || "",
     });
@@ -71,6 +73,7 @@ export function ExercisesView() {
 
     await createMutation.mutateAsync({
       name: formData.name.trim(),
+      category: formData.category,
       muscleGroup: formData.muscleGroup,
       notes: formData.notes.trim() || undefined,
     });
@@ -88,6 +91,7 @@ export function ExercisesView() {
       id: selectedExercise.id,
       data: {
         name: formData.name.trim(),
+        category: formData.category,
         muscleGroup: formData.muscleGroup,
         notes: formData.notes.trim() || undefined,
       },
@@ -203,7 +207,14 @@ export function ExercisesView() {
                           className="flex items-start justify-between p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
                         >
                           <div className="flex-1">
-                            <div className="font-medium">{exercise.name}</div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{exercise.name}</span>
+                              {exercise.category && exercise.category !== "Strength" && (
+                                <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                                  {exercise.category}
+                                </span>
+                              )}
+                            </div>
                             {exercise.notes && (
                               <p className="text-sm text-muted-foreground mt-1">
                                 {exercise.notes}
@@ -262,6 +273,27 @@ export function ExercisesView() {
                   }
                   required
                 />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium leading-none">
+                  Category
+                </label>
+                <div className="flex gap-1">
+                  {EXERCISE_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      className={`flex-1 px-3 py-2 text-sm rounded-md border transition-colors ${
+                        formData.category === cat
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-input hover:bg-accent"
+                      }`}
+                      onClick={() => setFormData({ ...formData, category: cat })}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="space-y-2">
                 <label
@@ -351,6 +383,27 @@ export function ExercisesView() {
                   }
                   required
                 />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium leading-none">
+                  Category
+                </label>
+                <div className="flex gap-1">
+                  {EXERCISE_CATEGORIES.map((cat) => (
+                    <button
+                      key={cat}
+                      type="button"
+                      className={`flex-1 px-3 py-2 text-sm rounded-md border transition-colors ${
+                        formData.category === cat
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background border-input hover:bg-accent"
+                      }`}
+                      onClick={() => setFormData({ ...formData, category: cat })}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="space-y-2">
                 <label

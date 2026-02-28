@@ -2,15 +2,16 @@ import { Hono } from "hono";
 import { zValidator } from "@hono/zod-validator";
 import { z } from "zod";
 import { requireAuth, type AuthContext } from "../lib/middleware.js";
-import { getDayOfWeek, getWeekNumber, getYear } from "@monke-bar/shared";
+import { getDayOfWeek, getWeekNumber } from "@monke-bar/shared";
 import { db } from "../db/index.js";
 import {
   workoutSessions,
   exercises,
   sets,
+  cardioSessions,
   exerciseMaster,
 } from "../db/schema.js";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, isNull } from "drizzle-orm";
 
 export const workoutsRoutes = new Hono<{ Variables: AuthContext }>();
 
@@ -30,7 +31,7 @@ workoutsRoutes.get("/db", async (c) => {
     const user = c.get("user");
 
     // Query all workout sessions with their exercises and sets
-    const sessions = await db
+    const dbSessions = await db
       .select()
       .from(workoutSessions)
       .where(eq(workoutSessions.userId, user.id))
@@ -38,15 +39,38 @@ workoutsRoutes.get("/db", async (c) => {
 
     // Fetch exercises and sets for each session
     const workouts = await Promise.all(
-      sessions.map(async (session) => {
+      dbSessions.map(async (session) => {
         const sessionExercises = await db
           .select()
           .from(exercises)
           .where(eq(exercises.sessionId, session.id))
           .orderBy(exercises.orderIndex);
 
-        const exercisesWithSets = await Promise.all(
+        const exercisesWithData = await Promise.all(
           sessionExercises.map(async (ex) => {
+            // Check for cardio data first
+            const [cardio] = await db
+              .select()
+              .from(cardioSessions)
+              .where(eq(cardioSessions.exerciseId, ex.id));
+
+            if (cardio) {
+              return {
+                id: ex.id,
+                name: ex.name,
+                groupId: ex.groupId || undefined,
+                groupType: ex.groupType || undefined,
+                sets: [],
+                cardio: {
+                  duration: cardio.duration,
+                  level: cardio.level ?? undefined,
+                  distance: cardio.distance
+                    ? parseFloat(cardio.distance)
+                    : undefined,
+                },
+              };
+            }
+
             const exerciseSets = await db
               .select()
               .from(sets)
@@ -65,16 +89,16 @@ workoutsRoutes.get("/db", async (c) => {
                 isWarmup: s.isWarmup,
               })),
             };
-          })
+          }),
         );
 
         return {
           date: session.date || "",
           dayOfWeek: session.dayOfWeek,
           weekNumber: session.weekNumber,
-          exercises: exercisesWithSets,
+          exercises: exercisesWithData,
         };
-      })
+      }),
     );
 
     return c.json({
@@ -127,13 +151,12 @@ workoutsRoutes.post(
       for (const workout of workouts) {
         const workoutDate = new Date(workout.date);
         const weekNumber = getWeekNumber(workoutDate);
-        const year = getYear(workoutDate);
 
         // Check if workout session already exists for this date
         const existingSession = await db.query.workoutSessions.findFirst({
           where: and(
             eq(workoutSessions.userId, user.id),
-            eq(workoutSessions.date, workout.date)
+            eq(workoutSessions.date, workout.date),
           ),
         });
 
@@ -197,7 +220,7 @@ workoutsRoutes.post(
                 weight: set.weight.toString(),
                 reps: set.reps,
                 isWarmup: set.isWarmup,
-              }))
+              })),
             );
           }
         }
@@ -216,7 +239,7 @@ workoutsRoutes.post(
       const message = error instanceof Error ? error.message : "Unknown error";
       return c.json({ success: false, error: message }, 500);
     }
-  }
+  },
 );
 
 /**
@@ -228,9 +251,7 @@ workoutsRoutes.delete("/db", async (c) => {
     const user = c.get("user");
 
     // Delete all workout sessions for this user (cascade will handle exercises and sets)
-    await db
-      .delete(workoutSessions)
-      .where(eq(workoutSessions.userId, user.id));
+    await db.delete(workoutSessions).where(eq(workoutSessions.userId, user.id));
 
     return c.json({
       success: true,
@@ -256,12 +277,22 @@ const workoutEntrySchema = z.object({
       reps: z.number(),
     })
     .optional(),
-  sets: z.array(
-    z.object({
-      weight: z.number(),
-      reps: z.number(),
+  sets: z
+    .array(
+      z.object({
+        weight: z.number(),
+        reps: z.number(),
+      }),
+    )
+    .optional()
+    .default([]),
+  cardio: z
+    .object({
+      duration: z.number(), // seconds
+      level: z.number().optional(),
+      distance: z.number().optional(),
     })
-  ),
+    .optional(),
   groupId: z.string().optional(),
   groupType: z.enum(["superset"]).optional(),
 });
@@ -277,24 +308,29 @@ workoutsRoutes.post(
       let entriesAdded = 0;
 
       // Group entries by date
-      const entriesByDate = entries.reduce((acc, entry) => {
-        if (!acc[entry.date]) {
-          acc[entry.date] = [];
-        }
-        acc[entry.date].push(entry);
-        return acc;
-      }, {} as Record<string, typeof entries>);
+      const entriesByDate = entries.reduce(
+        (acc, entry) => {
+          if (!acc[entry.date]) {
+            acc[entry.date] = [];
+          }
+          acc[entry.date].push(entry);
+          return acc;
+        },
+        {} as Record<string, typeof entries>,
+      );
 
       // Process each date
       for (const [date, dateEntries] of Object.entries(entriesByDate)) {
         const workoutDate = new Date(date);
         const dayOfWeek = getDayOfWeek(workoutDate);
         const weekNumber = getWeekNumber(workoutDate);
-        const year = getYear(workoutDate);
 
         // Find or create workout session
         let session = await db.query.workoutSessions.findFirst({
-          where: and(eq(workoutSessions.userId, user.id), eq(workoutSessions.date, date)),
+          where: and(
+            eq(workoutSessions.userId, user.id),
+            eq(workoutSessions.date, date),
+          ),
         });
 
         if (!session) {
@@ -320,10 +356,21 @@ workoutsRoutes.post(
 
         // Add each entry as an exercise
         for (const entry of dateEntries) {
+          // TODO: grab the exerciseMaster directly in the frontend and send the ID instead of name, to avoid this extra query and potential mismatches
+          // Resolve exerciseMasterId by matching name for this user
+          const masterExercise = await db.query.exerciseMaster.findFirst({
+            where: and(
+              eq(exerciseMaster.userId, user.id),
+              sql`LOWER(${exerciseMaster.name}) = LOWER(${entry.exercise})`,
+              isNull(exerciseMaster.deletedAt),
+            ),
+          });
+
           const [newExercise] = await db
             .insert(exercises)
             .values({
               sessionId: session.id,
+              exerciseMasterId: masterExercise?.id ?? null,
               name: entry.exercise,
               orderIndex: orderIndex++,
               groupId: entry.groupId || null,
@@ -331,33 +378,47 @@ workoutsRoutes.post(
             })
             .returning();
 
-          // Add sets
-          const setsToInsert = [];
-
-          // Add warmup set if exists
-          if (entry.warmup) {
-            setsToInsert.push({
+          if (entry.cardio) {
+            // Cardio exercise: insert into dedicated cardio_sessions table
+            await db.insert(cardioSessions).values({
               exerciseId: newExercise.id,
-              setNumber: 0,
-              weight: entry.warmup.weight.toString(),
-              reps: entry.warmup.reps,
-              isWarmup: true,
+              duration: entry.cardio.duration,
+              level: entry.cardio.level ?? null,
+              distance: entry.cardio.distance?.toString() ?? null,
             });
-          }
+          } else {
+            // Strength/Calisthenics: add warmup + working sets
+            const setsToInsert: {
+              exerciseId: number;
+              setNumber: number;
+              weight: string;
+              reps: number;
+              isWarmup: boolean;
+            }[] = [];
 
-          // Add working sets
-          entry.sets.forEach((set, idx) => {
-            setsToInsert.push({
-              exerciseId: newExercise.id,
-              setNumber: idx + 1,
-              weight: set.weight.toString(),
-              reps: set.reps,
-              isWarmup: false,
+            if (entry.warmup) {
+              setsToInsert.push({
+                exerciseId: newExercise.id,
+                setNumber: 0,
+                weight: entry.warmup.weight.toString(),
+                reps: entry.warmup.reps,
+                isWarmup: true,
+              });
+            }
+
+            entry.sets.forEach((set, idx) => {
+              setsToInsert.push({
+                exerciseId: newExercise.id,
+                setNumber: idx + 1,
+                weight: set.weight.toString(),
+                reps: set.reps,
+                isWarmup: false,
+              });
             });
-          });
 
-          if (setsToInsert.length > 0) {
-            await db.insert(sets).values(setsToInsert);
+            if (setsToInsert.length > 0) {
+              await db.insert(sets).values(setsToInsert);
+            }
           }
 
           entriesAdded++;
@@ -373,7 +434,7 @@ workoutsRoutes.post(
       const message = error instanceof Error ? error.message : "Unknown error";
       return c.json({ success: false, error: message }, 500);
     }
-  }
+  },
 );
 
 /**
@@ -401,11 +462,11 @@ workoutsRoutes.delete("/db/:date/exercise/:exerciseId", async (c) => {
     if (exercise.session.userId !== user.id) {
       return c.json(
         { success: false, error: "Unauthorized to delete this exercise" },
-        403
+        403,
       );
     }
 
-    // Delete the exercise (cascade will handle sets)
+    // Delete the exercise (cascade will handle sets and cardio_sessions)
     await db.delete(exercises).where(eq(exercises.id, parseInt(exerciseId)));
 
     return c.json({
